@@ -346,9 +346,17 @@ export default function VideoPlayer({ video, userId, isActive }) {
       {showAd && (
         <div style={styles.adOverlay}>
           <div style={styles.adBox}>
-            <p style={styles.adLabel}>ADVERTISEMENT</p>
-            <p style={styles.adText}>[ Your Ad Network Tag Here ]</p>
-            <p style={styles.adSub}>Paste VAST/banner code inside adBox in VideoPlayer.jsx</p>
+<p style={styles.adLabel}>ADVERTISEMENT</p>
+<div ref={el => {
+  if (el && !el.querySelector('script')) {
+    const s = document.createElement('script');
+    s.innerHTML = 'var _exo_src = "5932574";';
+    const s2 = document.createElement('script');
+    s2.src = 'https://a.exoclick.com/ad.js';
+    el.appendChild(s);
+    el.appendChild(s2);
+  }
+}} style={{ minHeight: '80px', width: '100%' }} />
           </div>
           <div style={styles.adTimer}>Ad ends in {adCountdown}s</div>
         </div>
