@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { fetchLiked } from '../lib/supabase';
 import VideoGrid from '../components/VideoGrid';
+import AuthPrompt from '../components/AuthPrompt';
 
 export default function Liked() {
   const { user } = useAuth();
@@ -14,15 +15,6 @@ export default function Liked() {
     fetchLiked(user.id).then(data => { setVideos(data); setLoading(false); });
   }, [user]);
 
-  if (!user) return <AuthPrompt label="liked videos" />;
+  if (!user) return <AuthPrompt icon="❤️" title="Liked Videos" message="Sign in to save all the videos you love." />;
   return <VideoGrid title="❤️ Liked Videos" videos={videos} loading={loading} />;
-}
-
-function AuthPrompt({ label }) {
-  return (
-    <div style={{ minHeight: 'calc(100vh - 68px)', background: '#0a0a0a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px' }}>
-      <p style={{ color: '#555', fontSize: '16px' }}>Sign in to see your {label}</p>
-      <a href="/account" style={{ color: '#ff416c', fontSize: '14px', textDecoration: 'none' }}>Go to Account →</a>
-    </div>
-  );
 }
