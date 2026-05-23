@@ -4,36 +4,6 @@ import VideoPlayer from '../components/VideoPlayer';
 import { fetchVideos } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
-function ExoClickBanner() {
-  const ref = React.useRef(null);
-  React.useEffect(() => {
-    const el = ref.current;
-    if (!el || el.dataset.loaded) return;
-    el.dataset.loaded = 'true';
-
-    // Script 1 — ad provider
-    const s1 = document.createElement('script');
-    s1.src = 'https://a.magsrv.com/ad-provider.js';
-    s1.async = true;
-    s1.type = 'application/javascript';
-
-    // ins tag
-    const ins = document.createElement('ins');
-    ins.className = 'eas6a97888e2';
-    ins.setAttribute('data-zoneid', '5932584');
-
-    // Script 2 — serve call
-    const s2 = document.createElement('script');
-    s2.text = '(AdProvider = window.AdProvider || []).push({"serve": {}});';
-
-    el.appendChild(s1);
-    el.appendChild(ins);
-    el.appendChild(s2);
-  }, []);
-
-  return <div ref={ref} />;
-}
-
 const SORT_OPTIONS = [
   { key: 'trending', label: 'Trending', emoji: '🔥' },
   { key: 'latest',   label: 'Latest',   emoji: '✨' },
@@ -156,9 +126,11 @@ export default function Feed() {
         )}
       </div>
 
-{/* Banner Ad */}
+      {/* Banner Ad */}
       <div style={styles.bannerAd}>
-        <ExoClickBanner />
+        <span style={{ color: '#333', fontSize: '11px', letterSpacing: '1px' }}>
+          [ BANNER AD — PASTE YOUR AD TAG HERE ]
+        </span>
       </div>
     </div>
   );
