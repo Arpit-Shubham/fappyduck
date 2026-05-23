@@ -126,11 +126,9 @@ export default function Feed() {
         )}
       </div>
 
-      {/* Banner Ad */}
+{/* Banner Ad */}
       <div style={styles.bannerAd}>
-        <span style={{ color: '#333', fontSize: '11px', letterSpacing: '1px' }}>
-          [ BANNER AD — PASTE YOUR AD TAG HERE ]
-        </span>
+        <ExoClickBanner />
       </div>
     </div>
   );
