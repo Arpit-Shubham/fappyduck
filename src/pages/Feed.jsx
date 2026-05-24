@@ -4,34 +4,41 @@ import VideoPlayer from '../components/VideoPlayer';
 import { fetchVideos } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
-// Adsterra Banner 320x50
-// key: 6088494202eb2287cc5144d18f71f3ab
+// Adsterra Banner 320x50 - direct script injection with delay
 function AdsterraBanner() {
   const ref = React.useRef(null);
   React.useEffect(() => {
-    const el = ref.current;
-    if (!el || el.dataset.loaded) return;
-    el.dataset.loaded = 'true';
-    // Script 1: set options
-    const s1 = document.createElement('script');
-    s1.type = 'text/javascript';
-    s1.text = `
-      atOptions = {
-        'key': '6088494202eb2287cc5144d18f71f3ab',
-        'format': 'iframe',
-        'height': 50,
-        'width': 320,
-        'params': {}
+    // Delay ensures DOM is painted before scripts fire
+    const timer = setTimeout(() => {
+      const el = ref.current;
+      if (!el || el.dataset.loaded) return;
+      el.dataset.loaded = 'true';
+      window.atOptions = {
+        key: '6088494202eb2287cc5144d18f71f3ab',
+        format: 'iframe',
+        height: 50,
+        width: 320,
+        params: {}
       };
-    `;
-    // Script 2: load ad
-    const s2 = document.createElement('script');
-    s2.type = 'text/javascript';
-    s2.src = '//www.topcreativeformat.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
-    el.appendChild(s1);
-    el.appendChild(s2);
+      const s = document.createElement('script');
+      s.type = 'text/javascript';
+      s.async = true;
+      s.src = 'https://www.topcreativeformat.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
+      s.onerror = () => {
+        // Fallback to alternate Adsterra CDN
+        const s2 = document.createElement('script');
+        s2.type = 'text/javascript';
+        s2.async = true;
+        s2.src = 'https://syndication.realsrv.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
+        el.appendChild(s2);
+      };
+      el.appendChild(s);
+    }, 800);
+    return () => clearTimeout(timer);
   }, []);
-  return <div ref={ref} style={{ width: '320px', height: '50px', overflow: 'hidden' }} />;
+  return (
+    <div ref={ref} style={{ width: '320px', height: '50px', overflow: 'hidden', display: 'block' }} />
+  );
 }
 
 const SORT_OPTIONS = [
@@ -231,8 +238,12 @@ const styles = {
   emptyText: { color: '#333', fontSize: '15px', fontFamily: "'Syne',sans-serif" },
   bannerAd: {
     position: 'fixed', bottom: '68px', left: 0, right: 0,
-    height: '50px', background: 'rgba(5,5,10,0.95)',
+    height: '50px',
+    background: '#000',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    borderTop: '1px solid rgba(26,107,255,0.1)', zIndex: 40
+    borderTop: '1px solid #111',
+    borderBottom: '1px solid #111',
+    zIndex: 40,
+    overflow: 'hidden'
   }
 };
