@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import Hls from 'hls.js';
 import { toggleLike, isLiked, addToHistory, fetchComments, postComment, incrementView } from '../lib/supabase';
 
-// ── SVG Action Icons ──────────────────────────────────────────────────────────
+// ── SVG Icons ─────────────────────────────────────────────────────────────────
 const HeartIcon = ({ filled }) => (
   <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
     <path d="M12 21C12 21 3 15.5 3 9a5 5 0 019-3 5 5 0 019 3c0 6.5-9 12-9 12z"
@@ -33,19 +33,23 @@ const EyeIcon = () => (
   </svg>
 );
 const FitIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-    <rect x="3" y="3" width="18" height="18" rx="2" stroke="rgba(255,255,255,0.8)" strokeWidth="1.8"/>
-    <path d="M8 3v3H3M16 3v3h5M8 21v-3H3M16 21v-3h5" stroke="rgba(255,255,255,0.8)" strokeWidth="1.8" strokeLinecap="round"/>
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <rect x="3" y="3" width="18" height="18" rx="2" stroke="rgba(255,255,255,0.85)" strokeWidth="1.8"/>
+    <path d="M8 3v3H3M16 3v3h5M8 21v-3H3M16 21v-3h5" stroke="rgba(255,255,255,0.85)" strokeWidth="1.8" strokeLinecap="round"/>
   </svg>
 );
 const FullscreenIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
     <path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"
       stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round"/>
   </svg>
 );
-
-// Duck SVG logo (small, black & white)
+const QualityIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+    <rect x="2" y="6" width="20" height="12" rx="2" stroke="rgba(255,255,255,0.85)" strokeWidth="1.8"/>
+    <path d="M8 12h2m2 0h2M12 9v6" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);
 const DuckLogo = () => (
   <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
     <ellipse cx="20" cy="26" rx="13" ry="9" fill="#fff" opacity="0.9"/>
@@ -56,11 +60,17 @@ const DuckLogo = () => (
   </svg>
 );
 
-const FIT_MODES = ['cover', 'contain', 'fill'];
+const FIT_MODES  = ['cover', 'contain', 'fill'];
 const FIT_LABELS = { cover: 'Best Fit', contain: 'Full View', fill: 'Stretch' };
 
-// Adsterra banner shown inside the 5-second pre-roll overlay
-// Uses the same 320x50 banner key — upgrade to interstitial zone later for better CPM
+// Quality modes — for HLS streams these control HLS level; for embeds shows label only
+const QUALITY_MODES = [
+  { key: 'auto',   label: 'Auto',        sub: 'Balanced',    hlsLevel: -1  },
+  { key: 'high',   label: 'HD',          sub: 'Best quality', hlsLevel: -1 },
+  { key: 'low',    label: 'Data Saver',  sub: 'Saves data',   hlsLevel: 0  },
+];
+
+// ── Adsterra preroll ──────────────────────────────────────────────────────────
 function AdsterraPreroll() {
   const ref = React.useRef(null);
   React.useEffect(() => {
@@ -69,66 +79,61 @@ function AdsterraPreroll() {
     el.dataset.loaded = 'true';
     const s1 = document.createElement('script');
     s1.type = 'text/javascript';
-    s1.text = `
-      atOptions = {
-        'key': '6088494202eb2287cc5144d18f71f3ab',
-        'format': 'iframe',
-        'height': 50,
-        'width': 320,
-        'params': {}
-      };
-    `;
+    s1.text = `atOptions={'key':'6088494202eb2287cc5144d18f71f3ab','format':'iframe','height':50,'width':320,'params':{}};`;
     const s2 = document.createElement('script');
     s2.type = 'text/javascript';
-    s2.src = '//www.topcreativeformat.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
-    el.appendChild(s1);
-    el.appendChild(s2);
+    s2.src = 'https://www.topcreativeformat.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
+    el.appendChild(s1); el.appendChild(s2);
   }, []);
-  return (
-    <div ref={ref} style={{
-      width: '320px', height: '50px',
-      margin: '12px auto 0', overflow: 'hidden',
-      borderRadius: '6px'
-    }} />
-  );
+  return <div ref={ref} style={{ width: '320px', height: '50px', margin: '10px auto 0', borderRadius: '6px', overflow: 'hidden' }} />;
 }
 
 export default function VideoPlayer({ video, userId, isActive }) {
-  const videoRef = useRef(null);
+  const videoRef     = useRef(null);
+  const iframeRef    = useRef(null);
   const containerRef = useRef(null);
-  const hlsRef = useRef(null);
-  const [liked, setLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(video.like_count || 0);
-  const [viewCount, setViewCount] = useState(video.view_count || 0);
-  const [showComments, setShowComments] = useState(false);
-  const [comments, setComments] = useState([]);
-  const [commentText, setCommentText] = useState('');
-  const [playing, setPlaying] = useState(false);
-  const [adShown, setAdShown] = useState(false);
-  const [adCountdown, setAdCountdown] = useState(5);
-  const [showAd, setShowAd] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [seeking, setSeeking] = useState(false);
-  const [fitMode, setFitMode] = useState(0); // index into FIT_MODES
-  const [fitPopup, setFitPopup] = useState('');
-  const [skipAnim, setSkipAnim] = useState(''); // '+10s' | '-10s' | ''
-  const [speedActive, setSpeedActive] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const viewTracked = useRef(false);
-  const tapTimer = useRef(null);
-  const tapCount = useRef(0);
-  const holdTimer = useRef(null);
-  const seekBarRef = useRef(null);
-  const fitPopupTimer = useRef(null);
+  const hlsRef       = useRef(null);
 
-  // HLS loader
+  const [liked, setLiked]             = useState(false);
+  const [likeCount, setLikeCount]     = useState(video.like_count || 0);
+  const [viewCount, setViewCount]     = useState(video.view_count || 0);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments]       = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [playing, setPlaying]         = useState(false);
+  const [adShown, setAdShown]         = useState(false);
+  const [adCountdown, setAdCountdown] = useState(5);
+  const [showAd, setShowAd]           = useState(false);
+  const [progress, setProgress]       = useState(0);
+  const [duration, setDuration]       = useState(0);
+  const [seeking, setSeeking]         = useState(false);
+  const [fitMode, setFitMode]         = useState(0);
+  const [fitPopup, setFitPopup]       = useState('');
+  const [skipAnim, setSkipAnim]       = useState('');
+  const [speedActive, setSpeedActive] = useState(false);
+  const [qualityIdx, setQualityIdx]   = useState(0); // index into QUALITY_MODES
+  const [showQuality, setShowQuality] = useState(false);
+  const [qualityPopup, setQualityPopup] = useState('');
+
+  const viewTracked    = useRef(false);
+  const tapTimer       = useRef(null);
+  const tapCount       = useRef(0);
+  const holdTimer      = useRef(null);
+  const seekBarRef     = useRef(null);
+  const fitPopupTimer  = useRef(null);
+  const qualPopupTimer = useRef(null);
+
+  // Is this an eporner embed video?
+  const isEmbed = !!video.is_embed;
+
+  // ── HLS / direct video loader (non-embed only) ────────────────────────────
   useEffect(() => {
+    if (isEmbed) return;
     const vid = videoRef.current;
     if (!vid || !video.stream_url) return;
     if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
     if (video.stream_url.includes('.m3u8') && Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: true, startLevel: -1 });
       hls.loadSource(video.stream_url);
       hls.attachMedia(vid);
       hlsRef.current = hls;
@@ -136,22 +141,31 @@ export default function VideoPlayer({ video, userId, isActive }) {
       vid.src = video.stream_url;
     }
     return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
-  }, [video.stream_url]);
+  }, [video.stream_url, isEmbed]);
 
-  // Play/pause
+  // ── Quality change (HLS streams) ─────────────────────────────────────────
   useEffect(() => {
-    const vid = videoRef.current;
-    if (!vid) return;
+    if (!hlsRef.current) return;
+    const q = QUALITY_MODES[qualityIdx];
+    hlsRef.current.currentLevel = q.hlsLevel;
+    // Low quality: also cap bandwidth hint
+    if (q.key === 'low') hlsRef.current.config.maxMaxBufferLength = 10;
+    else hlsRef.current.config.maxMaxBufferLength = 60;
+  }, [qualityIdx]);
+
+  // ── Play / pause ─────────────────────────────────────────────────────────
+  useEffect(() => {
     if (isActive) {
       if (!adShown) { setShowAd(true); return; }
-      vid.play().catch(() => {});
+      if (!isEmbed) videoRef.current?.play().catch(() => {});
       setPlaying(true);
     } else {
-      vid.pause(); setPlaying(false); setShowAd(false);
+      if (!isEmbed) videoRef.current?.pause();
+      setPlaying(false); setShowAd(false);
     }
-  }, [isActive, adShown]);
+  }, [isActive, adShown, isEmbed]);
 
-  // Ad countdown
+  // ── Ad countdown ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!showAd) return;
     setAdCountdown(5);
@@ -160,7 +174,7 @@ export default function VideoPlayer({ video, userId, isActive }) {
         if (p <= 1) {
           clearInterval(iv);
           setShowAd(false); setAdShown(true);
-          videoRef.current?.play().catch(() => {});
+          if (!isEmbed) videoRef.current?.play().catch(() => {});
           setPlaying(true);
           return 0;
         }
@@ -168,27 +182,30 @@ export default function VideoPlayer({ video, userId, isActive }) {
       });
     }, 1000);
     return () => clearInterval(iv);
-  }, [showAd]);
+  }, [showAd, isEmbed]);
 
-  // View tracking with real count refresh
+  // ── View tracking ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isActive || !playing || viewTracked.current) return;
     const t = setTimeout(async () => {
       viewTracked.current = true;
-      const newCount = await incrementView(video.id);
-      if (newCount !== null) setViewCount(newCount);
+      if (!isEmbed) {
+        const newCount = await incrementView(video.id);
+        if (newCount !== null) setViewCount(newCount);
+      }
       if (userId) addToHistory(video.id, userId);
     }, 5000);
     return () => clearTimeout(t);
-  }, [isActive, playing, video.id, userId]);
+  }, [isActive, playing, video.id, userId, isEmbed]);
 
-  // Like state
+  // ── Like state ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (userId) isLiked(video.id, userId).then(setLiked);
-  }, [video.id, userId]);
+    if (userId && !isEmbed) isLiked(video.id, userId).then(setLiked);
+  }, [video.id, userId, isEmbed]);
 
-  // Seek bar progress
+  // ── Seekbar progress ─────────────────────────────────────────────────────
   useEffect(() => {
+    if (isEmbed) return;
     const vid = videoRef.current;
     if (!vid) return;
     const update = () => {
@@ -201,47 +218,52 @@ export default function VideoPlayer({ video, userId, isActive }) {
     vid.addEventListener('timeupdate', update);
     vid.addEventListener('loadedmetadata', onLoaded);
     return () => { vid.removeEventListener('timeupdate', update); vid.removeEventListener('loadedmetadata', onLoaded); };
-  }, [seeking]);
+  }, [seeking, isEmbed]);
 
-  // Fullscreen change listener
+  // ── Fullscreen ────────────────────────────────────────────────────────────
   useEffect(() => {
-    const onChange = () => setIsFullscreen(!!document.fullscreenElement);
+    const onChange = () => {};
     document.addEventListener('fullscreenchange', onChange);
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, []);
 
   const handleLike = async () => {
     if (!userId) { alert('Please sign in to like videos.'); return; }
+    if (isEmbed) { setLiked(l => !l); setLikeCount(c => liked ? c - 1 : c + 1); return; }
     const result = await toggleLike(video.id, userId);
-    setLiked(result.liked);
-    setLikeCount(result.likeCount);
+    setLiked(result.liked); setLikeCount(result.likeCount);
   };
 
   const handleComments = async () => {
     setShowComments(true);
-    const data = await fetchComments(video.id);
-    setComments(data);
+    if (!isEmbed) {
+      const data = await fetchComments(video.id);
+      setComments(data);
+    }
   };
 
   const handlePost = async () => {
     if (!userId) { alert('Sign in to comment'); return; }
     if (!commentText.trim()) return;
+    if (isEmbed) {
+      setComments(prev => [{ id: Date.now(), text: commentText, profiles: { username: 'You' } }, ...prev]);
+      setCommentText(''); return;
+    }
     const c = await postComment(video.id, userId, commentText.trim());
-    setComments(prev => [c, ...prev]);
-    setCommentText('');
+    setComments(prev => [c, ...prev]); setCommentText('');
   };
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/v/${video.id}`;
+    const url = isEmbed ? video.embed_url : `${window.location.origin}/v/${video.id}`;
     if (navigator.share) await navigator.share({ title: video.title, url });
     else { await navigator.clipboard.writeText(url); alert('Link copied!'); }
   };
 
   const handleFitToggle = () => {
+    if (isEmbed) return; // fit doesn't apply to iframes
     const next = (fitMode + 1) % FIT_MODES.length;
     setFitMode(next);
-    const label = FIT_LABELS[FIT_MODES[next]];
-    setFitPopup(label);
+    setFitPopup(FIT_LABELS[FIT_MODES[next]]);
     if (fitPopupTimer.current) clearTimeout(fitPopupTimer.current);
     fitPopupTimer.current = setTimeout(() => setFitPopup(''), 1500);
   };
@@ -255,8 +277,16 @@ export default function VideoPlayer({ video, userId, isActive }) {
     }
   };
 
-  // Seekbar interaction
+  const handleQualitySelect = (idx) => {
+    setQualityIdx(idx);
+    setShowQuality(false);
+    setQualityPopup(QUALITY_MODES[idx].label);
+    if (qualPopupTimer.current) clearTimeout(qualPopupTimer.current);
+    qualPopupTimer.current = setTimeout(() => setQualityPopup(''), 1500);
+  };
+
   const handleSeekClick = useCallback((e) => {
+    if (isEmbed) return;
     const bar = seekBarRef.current;
     const vid = videoRef.current;
     if (!bar || !vid || !vid.duration) return;
@@ -264,27 +294,23 @@ export default function VideoPlayer({ video, userId, isActive }) {
     const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     vid.currentTime = ratio * vid.duration;
     setProgress(ratio);
-  }, []);
+  }, [isEmbed]);
 
-  // Tap gesture handler (play/pause, double-tap skip)
   const handleVideoTap = useCallback((e) => {
-    if (showAd || showComments) return;
+    if (showAd || showComments || isEmbed) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = (e.touches?.[0]?.clientX ?? e.clientX) - rect.left;
     const side = x < rect.width / 2 ? 'left' : 'right';
-
     tapCount.current += 1;
     clearTimeout(tapTimer.current);
     tapTimer.current = setTimeout(() => {
       if (tapCount.current === 1) {
-        // single tap = play/pause
         const vid = videoRef.current;
         if (!vid) return;
         if (playing) { vid.pause(); setPlaying(false); }
         else { vid.play(); setPlaying(true); }
       } else {
-        // double tap = skip
         const vid = videoRef.current;
         if (!vid) return;
         const delta = side === 'right' ? 10 : -10;
@@ -294,10 +320,10 @@ export default function VideoPlayer({ video, userId, isActive }) {
       }
       tapCount.current = 0;
     }, 250);
-  }, [playing, showAd, showComments]);
+  }, [playing, showAd, showComments, isEmbed]);
 
-  // Hold left = 2x speed
   const handleTouchStart = useCallback((e) => {
+    if (isEmbed) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
     const x = e.touches[0].clientX - rect.left;
@@ -307,7 +333,7 @@ export default function VideoPlayer({ video, userId, isActive }) {
         setSpeedActive(true);
       }, 200);
     }
-  }, []);
+  }, [isEmbed]);
 
   const handleTouchEnd = useCallback(() => {
     clearTimeout(holdTimer.current);
@@ -318,10 +344,16 @@ export default function VideoPlayer({ video, userId, isActive }) {
   }, [speedActive]);
 
   const formatCount = n => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(1)+'K' : String(n || 0);
-  const formatDate = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const formatTime = s => isNaN(s) ? '0:00' : `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+  const formatDate  = d => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const formatTime  = s => isNaN(s) ? '0:00' : `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
   const currentObjectFit = FIT_MODES[fitMode];
+  const currentQuality   = QUALITY_MODES[qualityIdx];
+
+  // Build eporner embed URL with autoplay when active
+  const embedSrc = video.embed_url
+    ? `${video.embed_url}?autoplay=${isActive && adShown ? 1 : 0}&mute=0`
+    : '';
 
   return (
     <div ref={containerRef} style={styles.container}>
@@ -330,37 +362,56 @@ export default function VideoPlayer({ video, userId, isActive }) {
         @keyframes popupFade { 0%{opacity:1;transform:translateY(0)} 80%{opacity:1} 100%{opacity:0;transform:translateY(-8px)} }
         .skip-anim { animation: skipFade 0.7s ease forwards; }
         .fit-popup { animation: popupFade 1.5s ease forwards; }
+        .qual-popup { animation: popupFade 1.5s ease forwards; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#fff; cursor:pointer; box-shadow:0 0 6px rgba(26,107,255,0.8); }
         input[type=range]::-webkit-slider-runnable-track { height:3px; border-radius:2px; }
         input[type=range] { -webkit-appearance:none; width:100%; height:3px; outline:none; cursor:pointer; background: linear-gradient(to right, #fff ${(progress*100).toFixed(1)}%, rgba(255,255,255,0.25) ${(progress*100).toFixed(1)}%); }
       `}</style>
 
-      {/* Video element */}
-      <video
-        ref={videoRef}
-        style={{ ...styles.video, objectFit: currentObjectFit }}
-        loop playsInline muted={false}
-        poster={video.thumbnail_url}
-        onClick={handleVideoTap}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      />
+      {/* ── Video: iframe for eporner, native video otherwise ─────────────── */}
+      {isEmbed ? (
+        <iframe
+          ref={iframeRef}
+          src={isActive && adShown ? embedSrc : ''}
+          style={styles.iframe}
+          allowFullScreen
+          allow="autoplay; fullscreen"
+          title={video.title}
+          scrolling="no"
+          frameBorder="0"
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          style={{ ...styles.video, objectFit: currentObjectFit }}
+          loop playsInline
+          poster={video.thumbnail_url}
+          onClick={handleVideoTap}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        />
+      )}
 
-      {/* Pause overlay */}
-      {!playing && !showAd && (
+      {/* Thumbnail shown before ad finishes for embed videos */}
+      {isEmbed && !adShown && (
+        <div style={styles.thumbOverlay}>
+          {video.thumbnail_url && (
+            <img src={video.thumbnail_url} alt={video.title} style={styles.thumbImg} />
+          )}
+        </div>
+      )}
+
+      {/* Pause overlay (non-embed only) */}
+      {!isEmbed && !playing && !showAd && (
         <div style={styles.pauseOverlay} onClick={handleVideoTap}>
           <div style={styles.playCircle}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
-              <path d="M8 5v14l11-7z"/>
-            </svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z"/></svg>
           </div>
         </div>
       )}
 
-      {/* Speed indicator */}
-      {speedActive && (
-        <div style={styles.speedBadge}>⚡ 2x</div>
-      )}
+      {/* Speed badge */}
+      {speedActive && <div style={styles.speedBadge}>⚡ 2x</div>}
 
       {/* Skip animation */}
       {skipAnim && (
@@ -371,12 +422,17 @@ export default function VideoPlayer({ video, userId, isActive }) {
         }}>{skipAnim}</div>
       )}
 
-      {/* Fit mode popup */}
-      {fitPopup && (
-        <div className="fit-popup" style={styles.fitPopup}>{fitPopup}</div>
+      {/* Fit popup */}
+      {fitPopup && <div className="fit-popup" style={styles.fitPopup}>{fitPopup}</div>}
+
+      {/* Quality popup */}
+      {qualityPopup && (
+        <div className="qual-popup" style={styles.qualityPopup}>
+          {currentQuality.key === 'low' ? '🔋 ' : '✨ '}{qualityPopup}
+        </div>
       )}
 
-      {/* Pre-roll Ad — Adsterra banner shown during 5s countdown */}
+      {/* Pre-roll Ad overlay */}
       {showAd && (
         <div style={styles.adOverlay}>
           <div style={styles.adBox}>
@@ -387,54 +443,96 @@ export default function VideoPlayer({ video, userId, isActive }) {
         </div>
       )}
 
-      {/* Top bar: FappyDuck branding + fit + fullscreen */}
+      {/* ── Top bar ──────────────────────────────────────────────────────── */}
       <div style={styles.topBar}>
         <div style={styles.brandRow}>
           <DuckLogo />
           <span style={styles.brandText}>FappyDuck</span>
         </div>
         <div style={styles.topActions}>
-          <button onClick={handleFitToggle} style={styles.topBtn} title="Change fit mode">
-            <FitIcon />
+          {/* Quality button */}
+          <button onClick={() => setShowQuality(s => !s)} style={{
+            ...styles.topBtn,
+            background: currentQuality.key === 'low'
+              ? 'rgba(255,180,0,0.15)' : 'rgba(255,255,255,0.08)',
+            border: currentQuality.key === 'low'
+              ? '1px solid rgba(255,180,0,0.3)' : '1px solid rgba(255,255,255,0.1)',
+          }} title="Playback quality">
+            <span style={{ fontSize: '10px', fontWeight: 800, color: currentQuality.key === 'low' ? '#ffb400' : '#fff', fontFamily: "'Syne',sans-serif", letterSpacing: '0.3px' }}>
+              {currentQuality.key === 'low' ? 'ECO' : currentQuality.key === 'high' ? 'HD' : 'AUTO'}
+            </span>
           </button>
+          {!isEmbed && (
+            <button onClick={handleFitToggle} style={styles.topBtn} title="Change fit">
+              <FitIcon />
+            </button>
+          )}
           <button onClick={handleFullscreen} style={styles.topBtn} title="Fullscreen">
             <FullscreenIcon />
           </button>
         </div>
       </div>
 
-      {/* Bottom info + seekbar */}
+      {/* ── Quality sheet ────────────────────────────────────────────────── */}
+      {showQuality && (
+        <div style={styles.qualitySheet} onClick={() => setShowQuality(false)}>
+          <div style={styles.qualityCard} onClick={e => e.stopPropagation()}>
+            <div style={styles.qualHandle} />
+            <p style={styles.qualTitle}>PLAYBACK QUALITY</p>
+            {QUALITY_MODES.map((q, idx) => (
+              <button key={q.key} style={styles.qualOption} onClick={() => handleQualitySelect(idx)}>
+                <div style={styles.qualLeft}>
+                  <span style={{ ...styles.qualLabel, color: qualityIdx === idx ? '#1a6bff' : '#fff' }}>
+                    {q.label}
+                  </span>
+                  <span style={styles.qualSub}>{q.sub}</span>
+                </div>
+                {qualityIdx === idx && (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <path d="M5 12l5 5L20 7" stroke="#1a6bff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </button>
+            ))}
+            {isEmbed && (
+              <p style={styles.qualNote}>
+                Quality for eporner videos is controlled by the video player itself.
+                Data Saver reduces preloading.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Bottom info + seekbar ────────────────────────────────────────── */}
       <div style={styles.bottomArea}>
-        <div style={styles.infoRow}>
-          <div style={styles.infoLeft}>
-            <p style={styles.title}>{video.title}</p>
-            <p style={styles.date}>{formatDate(video.created_at)}</p>
+        <p style={styles.title}>{video.title}</p>
+        <p style={styles.date}>{formatDate(video.created_at)}</p>
+        {!isEmbed && (
+          <div style={styles.seekRow}>
+            <span style={styles.timeLabel}>{formatTime(duration * progress)}</span>
+            <div style={styles.seekTrack} ref={seekBarRef} onClick={handleSeekClick}>
+              <input
+                type="range" min="0" max="1" step="0.001"
+                value={progress}
+                onChange={e => {
+                  const v = parseFloat(e.target.value);
+                  setProgress(v);
+                  if (videoRef.current?.duration) videoRef.current.currentTime = v * videoRef.current.duration;
+                }}
+                onMouseDown={() => setSeeking(true)}
+                onMouseUp={() => setSeeking(false)}
+                onTouchStart={() => setSeeking(true)}
+                onTouchEnd={() => setSeeking(false)}
+                style={styles.seekInput}
+              />
+            </div>
+            <span style={styles.timeLabel}>{formatTime(duration)}</span>
           </div>
-        </div>
-        {/* Seekbar */}
-        <div style={styles.seekRow}>
-          <span style={styles.timeLabel}>{formatTime(duration * progress)}</span>
-          <div style={styles.seekTrack} ref={seekBarRef} onClick={handleSeekClick}>
-            <input
-              type="range" min="0" max="1" step="0.001"
-              value={progress}
-              onChange={e => {
-                const v = parseFloat(e.target.value);
-                setProgress(v);
-                if (videoRef.current?.duration) videoRef.current.currentTime = v * videoRef.current.duration;
-              }}
-              onMouseDown={() => setSeeking(true)}
-              onMouseUp={() => setSeeking(false)}
-              onTouchStart={() => setSeeking(true)}
-              onTouchEnd={() => setSeeking(false)}
-              style={styles.seekInput}
-            />
-          </div>
-          <span style={styles.timeLabel}>{formatTime(duration)}</span>
-        </div>
+        )}
       </div>
 
-      {/* Right action buttons — offset above banner ad (50px) */}
+      {/* ── Right actions ─────────────────────────────────────────────────── */}
       <div style={styles.actions}>
         <ActionBtn icon={<HeartIcon filled={liked} />} label={formatCount(likeCount)} onClick={handleLike} active={liked} color="#ff3b6b" />
         <ActionBtn icon={<CommentIcon />} label="Comment" onClick={handleComments} color="#1a6bff" />
@@ -442,7 +540,7 @@ export default function VideoPlayer({ video, userId, isActive }) {
         <ActionBtn icon={<EyeIcon />} label={formatCount(viewCount)} color="#aaa" />
       </div>
 
-      {/* Comments Sheet */}
+      {/* ── Comments sheet ───────────────────────────────────────────────── */}
       {showComments && (
         <div style={styles.commentsSheet}>
           <div style={styles.commentsHeader}>
@@ -455,8 +553,8 @@ export default function VideoPlayer({ video, userId, isActive }) {
           </div>
           <div style={styles.commentsList}>
             {comments.length === 0 && <p style={styles.noComments}>No comments yet. Be first!</p>}
-            {comments.map(c => (
-              <div key={c.id} style={styles.comment}>
+            {comments.map((c, i) => (
+              <div key={c.id || i} style={styles.comment}>
                 <div style={styles.commentAvatar}>{(c.profiles?.username || 'U')[0].toUpperCase()}</div>
                 <div>
                   <span style={styles.commentUser}>{c.profiles?.username || 'User'}</span>
@@ -488,24 +586,34 @@ function ActionBtn({ icon, label, onClick, active, color }) {
         width: '48px', height: '48px', borderRadius: '50%',
         background: 'rgba(255,255,255,0.08)',
         backdropFilter: 'blur(8px)',
-        border: `1px solid rgba(255,255,255,0.12)`,
+        border: '1px solid rgba(255,255,255,0.12)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         boxShadow: active ? `0 0 16px ${color}66` : 'none',
         transition: 'all 0.2s ease'
-      }}>
-        {icon}
-      </div>
+      }}>{icon}</div>
       <span style={{ ...styles.actionLabel, color: active ? color : 'rgba(255,255,255,0.85)' }}>{label}</span>
     </button>
   );
 }
 
+const glassBtn = {
+  background: 'rgba(255,255,255,0.08)',
+  backdropFilter: 'blur(8px)',
+  border: '1px solid rgba(255,255,255,0.1)',
+  borderRadius: '8px', padding: '6px 8px',
+  cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center'
+};
+
 const styles = {
   container: { position: 'relative', width: '100%', height: '100%', background: '#050508', overflow: 'hidden' },
-  video: { width: '100%', height: '100%', display: 'block' },
+  video:     { width: '100%', height: '100%', display: 'block' },
+  iframe:    { width: '100%', height: '100%', border: 'none', display: 'block', background: '#000' },
+  thumbOverlay: { position: 'absolute', inset: 0, zIndex: 2 },
+  thumbImg:  { width: '100%', height: '100%', objectFit: 'cover' },
   pauseOverlay: {
-    position: 'absolute', inset: 0, display: 'flex',
-    alignItems: 'center', justifyContent: 'center', zIndex: 2
+    position: 'absolute', inset: 0,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2
   },
   playCircle: {
     width: '72px', height: '72px', borderRadius: '50%',
@@ -515,15 +623,14 @@ const styles = {
     boxShadow: '0 0 30px rgba(26,107,255,0.4)'
   },
   speedBadge: {
-    position: 'absolute', top: '50%', left: '50%',
-    transform: 'translate(-50%,-50%)',
+    position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
     background: 'rgba(26,107,255,0.85)', color: '#fff',
     padding: '8px 18px', borderRadius: '20px', fontSize: '16px', fontWeight: 800,
     backdropFilter: 'blur(8px)', zIndex: 5
   },
   skipAnim: {
-    position: 'absolute', top: '45%',
-    color: '#fff', fontSize: '22px', fontWeight: 800,
+    position: 'absolute', top: '45%', color: '#fff',
+    fontSize: '22px', fontWeight: 800,
     textShadow: '0 0 20px rgba(26,107,255,0.8)',
     zIndex: 5, pointerEvents: 'none'
   },
@@ -533,6 +640,13 @@ const styles = {
     padding: '6px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
     letterSpacing: '0.5px', zIndex: 10, pointerEvents: 'none'
   },
+  qualityPopup: {
+    position: 'absolute', top: '72px', left: '50%', transform: 'translateX(-50%)',
+    background: 'rgba(8,14,30,0.9)', color: '#fff', backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(26,107,255,0.3)',
+    padding: '6px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
+    zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap'
+  },
   adOverlay: {
     position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.92)',
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10
@@ -540,11 +654,9 @@ const styles = {
   adBox: {
     width: '90%', maxWidth: '380px', background: '#0d1a2e',
     border: '1px solid rgba(26,107,255,0.3)', borderRadius: '16px',
-    padding: '30px 20px', textAlign: 'center'
+    padding: '24px 20px', textAlign: 'center'
   },
   adLabel: { color: '#1a6bff', fontSize: '10px', fontWeight: 800, letterSpacing: '2px', margin: '0 0 8px' },
-  adText: { color: '#fff', fontSize: '15px', fontWeight: 600, margin: '0 0 6px' },
-  adSub: { color: '#555', fontSize: '11px', margin: 0 },
   adTimer: {
     marginTop: '20px', color: '#aaa', fontSize: '13px',
     background: 'rgba(26,107,255,0.15)', border: '1px solid rgba(26,107,255,0.3)',
@@ -554,33 +666,54 @@ const styles = {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4,
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
     padding: '12px 14px',
-    background: 'linear-gradient(to bottom, rgba(5,5,10,0.7) 0%, transparent 100%)'
+    background: 'linear-gradient(to bottom, rgba(5,5,10,0.75) 0%, transparent 100%)'
   },
   brandRow: { display: 'flex', alignItems: 'center', gap: '6px' },
   brandText: {
-    color: '#fff', fontFamily: "'Syne', sans-serif", fontWeight: 800,
-    fontSize: '15px', letterSpacing: '0.5px',
-    textShadow: '0 0 20px rgba(26,107,255,0.6)'
+    color: '#fff', fontFamily: "'Syne',sans-serif", fontWeight: 800,
+    fontSize: '15px', textShadow: '0 0 20px rgba(26,107,255,0.6)'
   },
-  topActions: { display: 'flex', gap: '8px' },
-  topBtn: {
-    background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(8px)',
-    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px',
-    padding: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center'
+  topActions: { display: 'flex', gap: '6px', alignItems: 'center' },
+  topBtn: { ...glassBtn },
+  // Quality sheet
+  qualitySheet: {
+    position: 'absolute', inset: 0, background: 'rgba(0,0,8,0.75)',
+    zIndex: 20, display: 'flex', alignItems: 'flex-end',
+    backdropFilter: 'blur(4px)'
   },
+  qualityCard: {
+    width: '100%', background: 'rgba(8,14,30,0.97)',
+    backdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0',
+    padding: '14px 0 36px',
+    border: '1px solid rgba(26,107,255,0.15)', borderBottom: 'none'
+  },
+  qualHandle: {
+    width: '36px', height: '4px',
+    background: 'rgba(26,107,255,0.4)', borderRadius: '2px',
+    margin: '0 auto 20px'
+  },
+  qualTitle: {
+    color: 'rgba(26,107,255,0.7)', fontSize: '11px', fontWeight: 800,
+    letterSpacing: '2px', textAlign: 'center', margin: '0 0 8px',
+    fontFamily: "'Syne',sans-serif"
+  },
+  qualOption: {
+    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+    width: '100%', padding: '14px 28px',
+    background: 'none', border: 'none', cursor: 'pointer'
+  },
+  qualLeft: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' },
+  qualLabel: { fontSize: '16px', fontWeight: 700, fontFamily: "'Syne',sans-serif" },
+  qualSub:   { color: '#555', fontSize: '12px', fontFamily: "'Syne',sans-serif" },
+  qualNote:  { color: '#444', fontSize: '11px', padding: '12px 28px 0', lineHeight: 1.6, fontFamily: "'Syne',sans-serif" },
   bottomArea: {
     position: 'absolute', bottom: '56px', left: 0, right: '76px', zIndex: 3,
     padding: '0 14px 10px',
     background: 'linear-gradient(to top, rgba(5,5,10,0.8) 0%, transparent 100%)'
   },
-  infoRow: { display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '10px' },
-  infoLeft: {},
-  title: {
-    color: '#fff', fontSize: '14px', fontWeight: 700, margin: '0 0 3px',
-    textShadow: '0 1px 6px rgba(0,0,0,0.9)', lineHeight: 1.3
-  },
-  date: { color: 'rgba(255,255,255,0.5)', fontSize: '11px', margin: 0 },
-  seekRow: { display: 'flex', alignItems: 'center', gap: '8px' },
+  title: { color: '#fff', fontSize: '14px', fontWeight: 700, margin: '0 0 3px', textShadow: '0 1px 6px rgba(0,0,0,0.9)', lineHeight: 1.3 },
+  date:  { color: 'rgba(255,255,255,0.5)', fontSize: '11px', margin: '0 0 10px' },
+  seekRow:   { display: 'flex', alignItems: 'center', gap: '8px' },
   seekTrack: { flex: 1, display: 'flex', alignItems: 'center' },
   seekInput: { width: '100%', margin: 0 },
   timeLabel: { color: 'rgba(255,255,255,0.6)', fontSize: '10px', fontWeight: 600, minWidth: '32px', textAlign: 'center' },
