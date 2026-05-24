@@ -148,7 +148,7 @@ export default function Feed() {
           <ChevronDown />
           <span style={styles.sortLabel}>
             {searchQuery
-              ? `"${searchQuery.slice(0,12)}${searchQuery.length>12?'…':'"}"`
+              ? `"${searchQuery.slice(0,12)}${searchQuery.length > 12 ? '…' : ''}"`
               : SORT_OPTIONS.find(o => o.key === sort)?.label
             }
           </span>
