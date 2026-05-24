@@ -59,6 +59,40 @@ const DuckLogo = () => (
 const FIT_MODES = ['cover', 'contain', 'fill'];
 const FIT_LABELS = { cover: 'Best Fit', contain: 'Full View', fill: 'Stretch' };
 
+// Adsterra banner shown inside the 5-second pre-roll overlay
+// Uses the same 320x50 banner key — upgrade to interstitial zone later for better CPM
+function AdsterraPreroll() {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || el.dataset.loaded) return;
+    el.dataset.loaded = 'true';
+    const s1 = document.createElement('script');
+    s1.type = 'text/javascript';
+    s1.text = `
+      atOptions = {
+        'key': '6088494202eb2287cc5144d18f71f3ab',
+        'format': 'iframe',
+        'height': 50,
+        'width': 320,
+        'params': {}
+      };
+    `;
+    const s2 = document.createElement('script');
+    s2.type = 'text/javascript';
+    s2.src = '//www.topcreativeformat.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
+    el.appendChild(s1);
+    el.appendChild(s2);
+  }, []);
+  return (
+    <div ref={ref} style={{
+      width: '320px', height: '50px',
+      margin: '12px auto 0', overflow: 'hidden',
+      borderRadius: '6px'
+    }} />
+  );
+}
+
 export default function VideoPlayer({ video, userId, isActive }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
@@ -342,13 +376,12 @@ export default function VideoPlayer({ video, userId, isActive }) {
         <div className="fit-popup" style={styles.fitPopup}>{fitPopup}</div>
       )}
 
-      {/* Pre-roll Ad */}
+      {/* Pre-roll Ad — Adsterra banner shown during 5s countdown */}
       {showAd && (
         <div style={styles.adOverlay}>
           <div style={styles.adBox}>
             <p style={styles.adLabel}>ADVERTISEMENT</p>
-            <p style={styles.adText}>[ Your Ad Network Tag Here ]</p>
-            <p style={styles.adSub}>Paste VAST/banner code inside adBox in VideoPlayer.jsx</p>
+            <AdsterraPreroll />
           </div>
           <div style={styles.adTimer}>Ad ends in {adCountdown}s</div>
         </div>
