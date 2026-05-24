@@ -4,6 +4,36 @@ import VideoPlayer from '../components/VideoPlayer';
 import { fetchVideos } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 
+// Adsterra Banner 320x50
+// key: 6088494202eb2287cc5144d18f71f3ab
+function AdsterraBanner() {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || el.dataset.loaded) return;
+    el.dataset.loaded = 'true';
+    // Script 1: set options
+    const s1 = document.createElement('script');
+    s1.type = 'text/javascript';
+    s1.text = `
+      atOptions = {
+        'key': '6088494202eb2287cc5144d18f71f3ab',
+        'format': 'iframe',
+        'height': 50,
+        'width': 320,
+        'params': {}
+      };
+    `;
+    // Script 2: load ad
+    const s2 = document.createElement('script');
+    s2.type = 'text/javascript';
+    s2.src = '//www.topcreativeformat.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
+    el.appendChild(s1);
+    el.appendChild(s2);
+  }, []);
+  return <div ref={ref} style={{ width: '320px', height: '50px', overflow: 'hidden' }} />;
+}
+
 const SORT_OPTIONS = [
   { key: 'trending', label: 'Trending', emoji: '🔥' },
   { key: 'latest',   label: 'Latest',   emoji: '✨' },
@@ -126,11 +156,9 @@ export default function Feed() {
         )}
       </div>
 
-      {/* Banner Ad */}
+      {/* Adsterra Banner 320x50 */}
       <div style={styles.bannerAd}>
-        <span style={{ color: '#333', fontSize: '11px', letterSpacing: '1px' }}>
-          [ BANNER AD — PASTE YOUR AD TAG HERE ]
-        </span>
+        <AdsterraBanner />
       </div>
     </div>
   );
