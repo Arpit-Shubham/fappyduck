@@ -44,12 +44,6 @@ const FullscreenIcon = () => (
       stroke="rgba(255,255,255,0.9)" strokeWidth="1.8" strokeLinecap="round"/>
   </svg>
 );
-const QualityIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-    <rect x="2" y="6" width="20" height="12" rx="2" stroke="rgba(255,255,255,0.85)" strokeWidth="1.8"/>
-    <path d="M8 12h2m2 0h2M12 9v6" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
-);
 const DuckLogo = () => (
   <svg width="22" height="22" viewBox="0 0 40 40" fill="none">
     <ellipse cx="20" cy="26" rx="13" ry="9" fill="#fff" opacity="0.9"/>
@@ -63,12 +57,6 @@ const DuckLogo = () => (
 const FIT_MODES  = ['cover', 'contain', 'fill'];
 const FIT_LABELS = { cover: 'Best Fit', contain: 'Full View', fill: 'Stretch' };
 
-// Quality modes — for HLS streams these control HLS level; for embeds shows label only
-const QUALITY_MODES = [
-  { key: 'auto',   label: 'Auto',        sub: 'Balanced',    hlsLevel: -1  },
-  { key: 'high',   label: 'HD',          sub: 'Best quality', hlsLevel: -1 },
-  { key: 'low',    label: 'Data Saver',  sub: 'Saves data',   hlsLevel: 0  },
-];
 
 // ── Adsterra preroll ──────────────────────────────────────────────────────────
 function AdsterraPreroll() {
@@ -111,9 +99,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
   const [fitPopup, setFitPopup]       = useState('');
   const [skipAnim, setSkipAnim]       = useState('');
   const [speedActive, setSpeedActive] = useState(false);
-  const [qualityIdx, setQualityIdx]   = useState(0); // index into QUALITY_MODES
-  const [showQuality, setShowQuality] = useState(false);
-  const [qualityPopup, setQualityPopup] = useState('');
 
   const viewTracked    = useRef(false);
   const tapTimer       = useRef(null);
@@ -121,7 +106,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
   const holdTimer      = useRef(null);
   const seekBarRef     = useRef(null);
   const fitPopupTimer  = useRef(null);
-  const qualPopupTimer = useRef(null);
 
   // Is this an eporner embed video?
   const isEmbed = !!video.is_embed;
@@ -142,16 +126,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
     }
     return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
   }, [video.stream_url, isEmbed]);
-
-  // ── Quality change (HLS streams) ─────────────────────────────────────────
-  useEffect(() => {
-    if (!hlsRef.current) return;
-    const q = QUALITY_MODES[qualityIdx];
-    hlsRef.current.currentLevel = q.hlsLevel;
-    // Low quality: also cap bandwidth hint
-    if (q.key === 'low') hlsRef.current.config.maxMaxBufferLength = 10;
-    else hlsRef.current.config.maxMaxBufferLength = 60;
-  }, [qualityIdx]);
 
   // ── Play / pause ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -193,14 +167,20 @@ export default function VideoPlayer({ video, userId, isActive }) {
         const newCount = await incrementView(video.id);
         if (newCount !== null) setViewCount(newCount);
       }
-      if (userId) addToHistory(video.id, userId);
+      if (userId) addToHistory(video.id, userId, {
+        title: video.title,
+        thumbnail_url: video.thumbnail_url,
+        duration: video.duration,
+        view_count: video.view_count,
+        embed_url: video.embed_url
+      });
     }, 5000);
     return () => clearTimeout(t);
   }, [isActive, playing, video.id, userId, isEmbed]);
 
   // ── Like state ────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (userId && !isEmbed) isLiked(video.id, userId).then(setLiked);
+    if (userId) isLiked(video.id, userId).then(setLiked);
   }, [video.id, userId, isEmbed]);
 
   // ── Seekbar progress ─────────────────────────────────────────────────────
@@ -277,14 +257,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
     }
   };
 
-  const handleQualitySelect = (idx) => {
-    setQualityIdx(idx);
-    setShowQuality(false);
-    setQualityPopup(QUALITY_MODES[idx].label);
-    if (qualPopupTimer.current) clearTimeout(qualPopupTimer.current);
-    qualPopupTimer.current = setTimeout(() => setQualityPopup(''), 1500);
-  };
-
   const handleSeekClick = useCallback((e) => {
     if (isEmbed) return;
     const bar = seekBarRef.current;
@@ -348,7 +320,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
   const formatTime  = s => isNaN(s) ? '0:00' : `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
 
   const currentObjectFit = FIT_MODES[fitMode];
-  const currentQuality   = QUALITY_MODES[qualityIdx];
 
   // Build eporner embed URL with autoplay when active
   const embedSrc = video.embed_url
@@ -362,7 +333,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
         @keyframes popupFade { 0%{opacity:1;transform:translateY(0)} 80%{opacity:1} 100%{opacity:0;transform:translateY(-8px)} }
         .skip-anim { animation: skipFade 0.7s ease forwards; }
         .fit-popup { animation: popupFade 1.5s ease forwards; }
-        .qual-popup { animation: popupFade 1.5s ease forwards; }
         input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#fff; cursor:pointer; box-shadow:0 0 6px rgba(26,107,255,0.8); }
         input[type=range]::-webkit-slider-runnable-track { height:3px; border-radius:2px; }
         input[type=range] { -webkit-appearance:none; width:100%; height:3px; outline:none; cursor:pointer; background: linear-gradient(to right, #fff ${(progress*100).toFixed(1)}%, rgba(255,255,255,0.25) ${(progress*100).toFixed(1)}%); }
@@ -425,13 +395,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
       {/* Fit popup */}
       {fitPopup && <div className="fit-popup" style={styles.fitPopup}>{fitPopup}</div>}
 
-      {/* Quality popup */}
-      {qualityPopup && (
-        <div className="qual-popup" style={styles.qualityPopup}>
-          {currentQuality.key === 'low' ? '🔋 ' : '✨ '}{qualityPopup}
-        </div>
-      )}
-
       {/* Pre-roll Ad overlay */}
       {showAd && (
         <div style={styles.adOverlay}>
@@ -450,18 +413,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
           <span style={styles.brandText}>FappyDuck</span>
         </div>
         <div style={styles.topActions}>
-          {/* Quality button */}
-          <button onClick={() => setShowQuality(s => !s)} style={{
-            ...styles.topBtn,
-            background: currentQuality.key === 'low'
-              ? 'rgba(255,180,0,0.15)' : 'rgba(255,255,255,0.08)',
-            border: currentQuality.key === 'low'
-              ? '1px solid rgba(255,180,0,0.3)' : '1px solid rgba(255,255,255,0.1)',
-          }} title="Playback quality">
-            <span style={{ fontSize: '10px', fontWeight: 800, color: currentQuality.key === 'low' ? '#ffb400' : '#fff', fontFamily: "'Syne',sans-serif", letterSpacing: '0.3px' }}>
-              {currentQuality.key === 'low' ? 'ECO' : currentQuality.key === 'high' ? 'HD' : 'AUTO'}
-            </span>
-          </button>
           {!isEmbed && (
             <button onClick={handleFitToggle} style={styles.topBtn} title="Change fit">
               <FitIcon />
@@ -472,37 +423,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
           </button>
         </div>
       </div>
-
-      {/* ── Quality sheet ────────────────────────────────────────────────── */}
-      {showQuality && (
-        <div style={styles.qualitySheet} onClick={() => setShowQuality(false)}>
-          <div style={styles.qualityCard} onClick={e => e.stopPropagation()}>
-            <div style={styles.qualHandle} />
-            <p style={styles.qualTitle}>PLAYBACK QUALITY</p>
-            {QUALITY_MODES.map((q, idx) => (
-              <button key={q.key} style={styles.qualOption} onClick={() => handleQualitySelect(idx)}>
-                <div style={styles.qualLeft}>
-                  <span style={{ ...styles.qualLabel, color: qualityIdx === idx ? '#1a6bff' : '#fff' }}>
-                    {q.label}
-                  </span>
-                  <span style={styles.qualSub}>{q.sub}</span>
-                </div>
-                {qualityIdx === idx && (
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                    <path d="M5 12l5 5L20 7" stroke="#1a6bff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                )}
-              </button>
-            ))}
-            {isEmbed && (
-              <p style={styles.qualNote}>
-                Quality for eporner videos is controlled by the video player itself.
-                Data Saver reduces preloading.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ── Bottom info + seekbar ────────────────────────────────────────── */}
       <div style={styles.bottomArea}>
@@ -640,13 +560,6 @@ const styles = {
     padding: '6px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
     letterSpacing: '0.5px', zIndex: 10, pointerEvents: 'none'
   },
-  qualityPopup: {
-    position: 'absolute', top: '72px', left: '50%', transform: 'translateX(-50%)',
-    background: 'rgba(8,14,30,0.9)', color: '#fff', backdropFilter: 'blur(12px)',
-    border: '1px solid rgba(26,107,255,0.3)',
-    padding: '6px 16px', borderRadius: '20px', fontSize: '12px', fontWeight: 700,
-    zIndex: 10, pointerEvents: 'none', whiteSpace: 'nowrap'
-  },
   adOverlay: {
     position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.92)',
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10
@@ -665,7 +578,7 @@ const styles = {
   topBar: {
     position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4,
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '12px 14px',
+    padding: '52px 14px 10px',
     background: 'linear-gradient(to bottom, rgba(5,5,10,0.75) 0%, transparent 100%)'
   },
   brandRow: { display: 'flex', alignItems: 'center', gap: '6px' },
@@ -673,39 +586,8 @@ const styles = {
     color: '#fff', fontFamily: "'Syne',sans-serif", fontWeight: 800,
     fontSize: '15px', textShadow: '0 0 20px rgba(26,107,255,0.6)'
   },
-  topActions: { display: 'flex', gap: '6px', alignItems: 'center' },
+  topActions: { display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 },
   topBtn: { ...glassBtn },
-  // Quality sheet
-  qualitySheet: {
-    position: 'absolute', inset: 0, background: 'rgba(0,0,8,0.75)',
-    zIndex: 20, display: 'flex', alignItems: 'flex-end',
-    backdropFilter: 'blur(4px)'
-  },
-  qualityCard: {
-    width: '100%', background: 'rgba(8,14,30,0.97)',
-    backdropFilter: 'blur(24px)', borderRadius: '24px 24px 0 0',
-    padding: '14px 0 36px',
-    border: '1px solid rgba(26,107,255,0.15)', borderBottom: 'none'
-  },
-  qualHandle: {
-    width: '36px', height: '4px',
-    background: 'rgba(26,107,255,0.4)', borderRadius: '2px',
-    margin: '0 auto 20px'
-  },
-  qualTitle: {
-    color: 'rgba(26,107,255,0.7)', fontSize: '11px', fontWeight: 800,
-    letterSpacing: '2px', textAlign: 'center', margin: '0 0 8px',
-    fontFamily: "'Syne',sans-serif"
-  },
-  qualOption: {
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    width: '100%', padding: '14px 28px',
-    background: 'none', border: 'none', cursor: 'pointer'
-  },
-  qualLeft: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '2px' },
-  qualLabel: { fontSize: '16px', fontWeight: 700, fontFamily: "'Syne',sans-serif" },
-  qualSub:   { color: '#555', fontSize: '12px', fontFamily: "'Syne',sans-serif" },
-  qualNote:  { color: '#444', fontSize: '11px', padding: '12px 28px 0', lineHeight: 1.6, fontFamily: "'Syne',sans-serif" },
   bottomArea: {
     position: 'absolute', bottom: '56px', left: 0, right: '76px', zIndex: 3,
     padding: '0 14px 10px',
