@@ -18,69 +18,142 @@ export async function fetchVideos(sortBy = 'trending', page = 0, limit = 10) {
   return data;
 }
 
-// Returns fresh counts from DB after incrementing
 export async function incrementView(videoId) {
-  await supabase.rpc('increment_view', { video_id: videoId });
-  const { data } = await supabase.from('videos').select('view_count').eq('id', videoId).single();
-  return data?.view_count ?? null;
+  try {
+    await supabase.rpc('increment_view', { video_id: videoId });
+    const { data } = await supabase.from('videos').select('view_count').eq('id', videoId).single();
+    return data?.view_count ?? null;
+  } catch { return null; }
 }
 
-// Returns { liked, likeCount } fresh from DB
+// ── Likes — works for both Supabase video IDs and eporner string IDs ──────────
+// Uses eporner_likes table which stores video_id as plain text (no FK constraint)
 export async function toggleLike(videoId, userId) {
-  const { data: existing } = await supabase
-    .from('likes').select('id').eq('video_id', videoId).eq('user_id', userId).single();
-  if (existing) {
-    await supabase.from('likes').delete().eq('id', existing.id);
-    await supabase.rpc('decrement_like', { video_id: videoId });
-  } else {
-    await supabase.from('likes').insert({ video_id: videoId, user_id: userId });
-    await supabase.rpc('increment_like', { video_id: videoId });
+  try {
+    const { data: existing } = await supabase
+      .from('eporner_likes')
+      .select('id')
+      .eq('video_id', String(videoId))
+      .eq('user_id', userId)
+      .single();
+
+    if (existing) {
+      await supabase.from('eporner_likes').delete().eq('id', existing.id);
+      return { liked: false, likeCount: await getLikeCount(videoId) };
+    } else {
+      await supabase.from('eporner_likes').insert({
+        video_id: String(videoId),
+        user_id: userId
+      });
+      return { liked: true, likeCount: await getLikeCount(videoId) };
+    }
+  } catch (e) {
+    console.error('toggleLike error:', e);
+    return { liked: false, likeCount: 0 };
   }
-  const { data } = await supabase.from('videos').select('like_count').eq('id', videoId).single();
-  return { liked: !existing, likeCount: data?.like_count ?? 0 };
+}
+
+async function getLikeCount(videoId) {
+  const { count } = await supabase
+    .from('eporner_likes')
+    .select('id', { count: 'exact', head: true })
+    .eq('video_id', String(videoId));
+  return count || 0;
 }
 
 export async function isLiked(videoId, userId) {
-  const { data } = await supabase.from('likes').select('id')
-    .eq('video_id', videoId).eq('user_id', userId).single();
-  return !!data;
+  try {
+    const { data } = await supabase
+      .from('eporner_likes')
+      .select('id')
+      .eq('video_id', String(videoId))
+      .eq('user_id', userId)
+      .single();
+    return !!data;
+  } catch { return false; }
 }
 
-export async function addToHistory(videoId, userId) {
-  await supabase.from('history').upsert(
-    { video_id: videoId, user_id: userId, watched_at: new Date().toISOString() },
-    { onConflict: 'video_id,user_id' }
-  );
+// ── History — stores eporner video metadata alongside the ID ─────────────────
+export async function addToHistory(videoId, userId, videoMeta) {
+  try {
+    await supabase.from('eporner_history').upsert(
+      {
+        video_id: String(videoId),
+        user_id: userId,
+        watched_at: new Date().toISOString(),
+        title: videoMeta?.title || '',
+        thumbnail_url: videoMeta?.thumbnail_url || '',
+        duration: videoMeta?.duration || 0,
+        view_count: videoMeta?.view_count || 0,
+        embed_url: videoMeta?.embed_url || ''
+      },
+      { onConflict: 'video_id,user_id' }
+    );
+  } catch (e) { console.error('addToHistory error:', e); }
 }
 
 export async function fetchHistory(userId) {
-  const { data, error } = await supabase.from('history')
-    .select('video_id, watched_at, videos(*)')
-    .eq('user_id', userId).order('watched_at', { ascending: false }).limit(50);
-  if (error) throw error;
-  return data?.map(h => ({ ...h.videos, watched_at: h.watched_at })) || [];
+  try {
+    const { data, error } = await supabase
+      .from('eporner_history')
+      .select('*')
+      .eq('user_id', userId)
+      .order('watched_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+    // Reshape to match VideoGrid's expected format
+    return (data || []).map(h => ({
+      id: h.video_id,
+      title: h.title,
+      thumbnail_url: h.thumbnail_url,
+      view_count: h.view_count,
+      duration: h.duration,
+      embed_url: h.embed_url,
+      is_embed: true,
+      watched_at: h.watched_at
+    }));
+  } catch (e) { console.error('fetchHistory error:', e); return []; }
 }
 
 export async function fetchLiked(userId) {
-  const { data, error } = await supabase.from('likes')
-    .select('video_id, videos(*)')
-    .eq('user_id', userId).order('created_at', { ascending: false });
-  if (error) throw error;
-  return data?.map(l => l.videos) || [];
+  try {
+    const { data, error } = await supabase
+      .from('eporner_likes')
+      .select('video_id, title, thumbnail_url, view_count, duration, embed_url, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []).map(l => ({
+      id: l.video_id,
+      title: l.title || '',
+      thumbnail_url: l.thumbnail_url || '',
+      view_count: l.view_count || 0,
+      duration: l.duration || 0,
+      embed_url: l.embed_url || '',
+      is_embed: true
+    }));
+  } catch (e) { console.error('fetchLiked error:', e); return []; }
 }
 
 export async function fetchComments(videoId) {
-  const { data, error } = await supabase.from('comments')
-    .select('*, profiles(username, avatar_url)')
-    .eq('video_id', videoId).order('created_at', { ascending: false }).limit(30);
-  if (error) throw error;
-  return data || [];
+  try {
+    const { data, error } = await supabase
+      .from('eporner_comments')
+      .select('*, profiles(username, avatar_url)')
+      .eq('video_id', String(videoId))
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (error) throw error;
+    return data || [];
+  } catch (e) { console.error('fetchComments error:', e); return []; }
 }
 
 export async function postComment(videoId, userId, text) {
-  const { data, error } = await supabase.from('comments')
-    .insert({ video_id: videoId, user_id: userId, text })
-    .select('*, profiles(username, avatar_url)').single();
+  const { data, error } = await supabase
+    .from('eporner_comments')
+    .insert({ video_id: String(videoId), user_id: userId, text })
+    .select('*, profiles(username, avatar_url)')
+    .single();
   if (error) throw error;
   return data;
 }
