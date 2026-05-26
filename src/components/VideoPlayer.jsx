@@ -99,6 +99,7 @@ export default function VideoPlayer({ video, userId, isActive }) {
   const [fitPopup, setFitPopup]       = useState('');
   const [skipAnim, setSkipAnim]       = useState('');
   const [speedActive, setSpeedActive] = useState(false);
+  const [userInteracted, setUserInteracted] = useState(false); // tracks first tap for unmute
 
   const viewTracked    = useRef(false);
   const tapTimer       = useRef(null);
@@ -109,6 +110,11 @@ export default function VideoPlayer({ video, userId, isActive }) {
 
   // Is this an eporner embed video?
   const isEmbed = !!video.is_embed;
+
+  // Reset mute state when a new video becomes active
+  useEffect(() => {
+    if (!isActive) setUserInteracted(false);
+  }, [video.id, isActive]);
 
   // ── HLS / direct video loader (non-embed only) ────────────────────────────
   useEffect(() => {
@@ -321,9 +327,11 @@ export default function VideoPlayer({ video, userId, isActive }) {
 
   const currentObjectFit = FIT_MODES[fitMode];
 
-  // Build eporner embed URL with autoplay when active
+  // Build eporner embed URL
+  // mute=1 on first load (browser policy), mute=0 after user interacts
+  const muteParam = userInteracted ? 0 : 1;
   const embedSrc = video.embed_url
-    ? `${video.embed_url}?autoplay=${isActive && adShown ? 1 : 0}&mute=0`
+    ? `${video.embed_url}?autoplay=${isActive && adShown ? 1 : 0}&mute=${muteParam}`
     : '';
 
   return (
@@ -360,6 +368,23 @@ export default function VideoPlayer({ video, userId, isActive }) {
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         />
+      )}
+
+      {/* Tap-to-unmute overlay — shown on first video until user taps */}
+      {isEmbed && isActive && adShown && !userInteracted && (
+        <div
+          style={styles.unmuteOverlay}
+          onClick={() => setUserInteracted(true)}
+        >
+          <div style={styles.unmuteBtn}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M11 5L6 9H2v6h4l5 4V5z" fill="rgba(255,255,255,0.9)"/>
+              <path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="1" y1="1" x2="23" y2="23" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            <span style={styles.unmuteTxt}>Tap to unmute</span>
+          </div>
+        </div>
       )}
 
       {/* Thumbnail shown before ad finishes for embed videos */}
@@ -647,5 +672,20 @@ const styles = {
     border: 'none', cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     boxShadow: '0 0 12px rgba(26,107,255,0.5)'
+  },
+  unmuteOverlay: {
+    position: 'absolute', bottom: '130px', left: '50%',
+    transform: 'translateX(-50%)', zIndex: 8,
+    cursor: 'pointer'
+  },
+  unmuteBtn: {
+    display: 'flex', alignItems: 'center', gap: '8px',
+    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)',
+    border: '1px solid rgba(255,255,255,0.15)',
+    borderRadius: '20px', padding: '8px 16px'
+  },
+  unmuteTxt: {
+    color: 'rgba(255,255,255,0.85)', fontSize: '13px',
+    fontWeight: 700, fontFamily: "'Syne',sans-serif"
   }
 };
