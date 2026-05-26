@@ -4,4 +4,4 @@ Disallow: /account
 Disallow: /history
 Disallow: /liked
 
-Sitemap: https://fappyduck.com/sitemap.xml
+Sitemap: https://fappyduck.online/sitemap.xml
