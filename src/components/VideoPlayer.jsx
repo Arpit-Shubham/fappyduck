@@ -76,6 +76,10 @@ function AdsterraPreroll() {
   return <div ref={ref} style={{ width: '320px', height: '50px', margin: '10px auto 0', borderRadius: '6px', overflow: 'hidden' }} />;
 }
 
+// Session unlock flag — persists for entire browser session
+// Once user taps play on first reel, all subsequent reels autoplay
+const sessionUnlocked = { current: false };
+
 export default function VideoPlayer({ video, userId, isActive }) {
   const videoRef     = useRef(null);
   const iframeRef    = useRef(null);
@@ -99,6 +103,7 @@ export default function VideoPlayer({ video, userId, isActive }) {
   const [fitPopup, setFitPopup]       = useState('');
   const [skipAnim, setSkipAnim]       = useState('');
   const [speedActive, setSpeedActive] = useState(false);
+  const [showTapOverlay, setShowTapOverlay] = useState(false);
 
   const viewTracked    = useRef(false);
   const tapTimer       = useRef(null);
@@ -136,15 +141,28 @@ export default function VideoPlayer({ video, userId, isActive }) {
   // ── Main active/inactive controller ──────────────────────────────────────
   useEffect(() => {
     if (isActive) {
-      // Step 1: show thumbnail for 0.8s
+      clearTimeout(thumbTimer.current);
+      clearTimeout(engageTimer.current);
+
+      if (!sessionUnlocked.current && isEmbed) {
+        // Session not unlocked yet — show tap overlay on top of thumbnail
+        setShowThumb(true);
+        setShowTapOverlay(true);
+        setPlaying(false);
+        // Don't start any timers — wait for user tap
+        return;
+      }
+
+      // Session is unlocked (or native video) — normal flow
+      setShowTapOverlay(false);
       setShowThumb(true);
       setPlaying(false);
+
       thumbTimer.current = setTimeout(() => {
-        // Step 2: hide thumb, start playing
         setShowThumb(false);
         setPlaying(true);
         if (!isEmbed) videoRef.current?.play().catch(() => {});
-        // Step 3: if user watches 3s, show ad (once per reel)
+        // 3s engagement timer for ad
         if (!adShown && !adTriggered.current) {
           engageTimer.current = setTimeout(() => {
             adTriggered.current = true;
@@ -154,20 +172,41 @@ export default function VideoPlayer({ video, userId, isActive }) {
           }, 3000);
         }
       }, 800);
+
     } else {
-      // Leaving reel — clear all timers, pause
+      // Leaving reel
       clearTimeout(thumbTimer.current);
       clearTimeout(engageTimer.current);
       if (!isEmbed) videoRef.current?.pause();
       setPlaying(false);
       setShowAd(false);
       setShowThumb(true);
+      setShowTapOverlay(false);
     }
     return () => {
       clearTimeout(thumbTimer.current);
       clearTimeout(engageTimer.current);
     };
   }, [isActive, isEmbed]); // eslint-disable-line
+
+  // ── Handle tap on the unlock overlay ─────────────────────────────────────
+  const handleUnlockTap = useCallback(() => {
+    sessionUnlocked.current = true;
+    setShowTapOverlay(false);
+    setShowThumb(true);
+    // Now run normal play flow
+    thumbTimer.current = setTimeout(() => {
+      setShowThumb(false);
+      setPlaying(true);
+      if (!adShown && !adTriggered.current) {
+        engageTimer.current = setTimeout(() => {
+          adTriggered.current = true;
+          setShowAd(true);
+          setPlaying(false);
+        }, 3000);
+      }
+    }, 800);
+  }, [adShown]);
 
   // Reset adTriggered when video changes
   useEffect(() => {
@@ -398,11 +437,25 @@ export default function VideoPlayer({ video, userId, isActive }) {
       )}
 
       {/* Thumbnail shown briefly at start and while ad plays */}
-      {isEmbed && (showThumb || showAd) && (
+      {isEmbed && (showThumb || showTapOverlay || showAd) && (
         <div style={styles.thumbOverlay}>
           {video.thumbnail_url && (
             <img src={video.thumbnail_url} alt={video.title} style={styles.thumbImg} />
           )}
+          {/* Dark gradient so play button is visible over thumbnail */}
+          {showTapOverlay && <div style={styles.thumbGrad} />}
+        </div>
+      )}
+
+      {/* Option B tap-to-unlock overlay — first reel only, one tap unlocks session */}
+      {showTapOverlay && (
+        <div style={styles.tapOverlay} onClick={handleUnlockTap}>
+          <div style={styles.tapCircle}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="white">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+          </div>
+          <p style={styles.tapHint}>Tap to play</p>
         </div>
       )}
 
@@ -564,6 +617,33 @@ const styles = {
   container: { position: 'relative', width: '100%', height: '100%', background: '#050508', overflow: 'hidden' },
   video:     { width: '100%', height: '100%', display: 'block' },
   iframe:    { width: '100%', height: '100%', border: 'none', display: 'block', background: '#000' },
+  tapOverlay: {
+    position: 'absolute', inset: 0, zIndex: 6,
+    display: 'flex', flexDirection: 'column',
+    alignItems: 'center', justifyContent: 'center',
+    gap: '14px', cursor: 'pointer',
+    WebkitTapHighlightColor: 'transparent'
+  },
+  tapCircle: {
+    width: '80px', height: '80px', borderRadius: '50%',
+    background: 'rgba(26,107,255,0.25)',
+    backdropFilter: 'blur(12px)',
+    WebkitBackdropFilter: 'blur(12px)',
+    border: '2px solid rgba(26,107,255,0.6)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 0 40px rgba(26,107,255,0.4), 0 0 80px rgba(26,107,255,0.15)',
+    paddingLeft: '4px'
+  },
+  tapHint: {
+    color: 'rgba(255,255,255,0.8)', fontSize: '13px',
+    fontWeight: 700, fontFamily: "'Syne',sans-serif",
+    letterSpacing: '1px', margin: 0,
+    textShadow: '0 1px 8px rgba(0,0,0,0.8)'
+  },
+  thumbGrad: {
+    position: 'absolute', inset: 0,
+    background: 'rgba(0,0,0,0.35)'
+  },
   thumbOverlay: { position: 'absolute', inset: 0, zIndex: 2 },
   thumbImg:  { width: '100%', height: '100%', objectFit: 'cover' },
   pauseOverlay: {
