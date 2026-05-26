@@ -4,7 +4,7 @@ import VideoPlayer from '../components/VideoPlayer';
 import { fetchEpornerVideos } from '../lib/eporner';
 import { useAuth } from '../hooks/useAuth';
 
-// ── Adsterra Banner ───────────────────────────────────────────────────────────
+// ── Adsterra Banner (new domain: scarleterror.com) ────────────────────────────
 function AdsterraBanner() {
   const ref = React.useRef(null);
   React.useEffect(() => {
@@ -12,21 +12,18 @@ function AdsterraBanner() {
       const el = ref.current;
       if (!el || el.dataset.loaded) return;
       el.dataset.loaded = 'true';
-      window.atOptions = { key: '6088494202eb2287cc5144d18f71f3ab', format: 'iframe', height: 50, width: 320, params: {} };
+      window.atOptions = {
+        key: 'c5831a750d0ec46ab4e86855aa45bdc1',
+        format: 'iframe', height: 50, width: 320, params: {}
+      };
       const s = document.createElement('script');
       s.type = 'text/javascript'; s.async = true;
-      s.src = 'https://www.topcreativeformat.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
-      s.onerror = () => {
-        const s2 = document.createElement('script');
-        s2.type = 'text/javascript'; s2.async = true;
-        s2.src = 'https://syndication.realsrv.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
-        el.appendChild(s2);
-      };
+      s.src = 'https://scarleterror.com/c5831a750d0ec46ab4e86855aa45bdc1/invoke.js';
       el.appendChild(s);
     }, 800);
     return () => clearTimeout(timer);
   }, []);
-  return <div ref={ref} style={{ width: '320px', height: '50px', overflow: 'hidden', display: 'block' }} />;
+  return <div ref={ref} style={{ width: '320px', height: '50px', overflow: 'hidden' }} />;
 }
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
@@ -63,17 +60,17 @@ const SORT_OPTIONS = [
   { key: 'oldest',   label: 'Oldest',   emoji: '\uD83D\uDCC5' },
 ];
 
-// ── Search Grid Card ──────────────────────────────────────────────────────────
+// ── Grid Card ─────────────────────────────────────────────────────────────────
 function GridCard({ video, onPlay }) {
   const [imgErr, setImgErr] = useState(false);
   const dur = video.duration
-    ? `${Math.floor(video.duration/60)}:${String(video.duration%60).padStart(2,'0')}`
+    ? `${Math.floor(video.duration / 60)}:${String(video.duration % 60).padStart(2, '0')}`
     : '';
   const views = video.view_count >= 1000000
-    ? (video.view_count/1000000).toFixed(1)+'M'
+    ? (video.view_count / 1000000).toFixed(1) + 'M'
     : video.view_count >= 1000
-    ? (video.view_count/1000).toFixed(1)+'K'
-    : String(video.view_count||0);
+    ? (video.view_count / 1000).toFixed(1) + 'K'
+    : String(video.view_count || 0);
 
   return (
     <div style={gc.card} onClick={() => onPlay(video)}>
@@ -83,7 +80,6 @@ function GridCard({ video, onPlay }) {
           : <div style={gc.imgFallback}><PlayIcon /></div>
         }
         {dur && <span style={gc.dur}>{dur}</span>}
-        <div style={gc.playOverlay}><div style={gc.playBtn}><PlayIcon /></div></div>
       </div>
       <div style={gc.info}>
         <p style={gc.title}>{video.title}</p>
@@ -98,9 +94,7 @@ const gc = {
     cursor: 'pointer', borderRadius: '12px', overflow: 'hidden',
     background: 'rgba(26,107,255,0.04)',
     border: '1px solid rgba(26,107,255,0.08)',
-    transition: 'border-color 0.2s, transform 0.15s',
-    WebkitTapHighlightColor: 'transparent',
-    position: 'relative'
+    WebkitTapHighlightColor: 'transparent'
   },
   thumb: { aspectRatio: '16/9', background: '#0a0e1a', position: 'relative', overflow: 'hidden' },
   img: { width: '100%', height: '100%', objectFit: 'cover', display: 'block' },
@@ -114,19 +108,6 @@ const gc = {
     fontSize: '10px', fontWeight: 700, padding: '2px 5px',
     borderRadius: '4px', fontFamily: "'Syne',sans-serif"
   },
-  playOverlay: {
-    position: 'absolute', inset: 0,
-    background: 'rgba(26,107,255,0.0)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    transition: 'background 0.2s', opacity: 0,
-  },
-  playBtn: {
-    width: '44px', height: '44px', borderRadius: '50%',
-    background: 'rgba(26,107,255,0.85)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    backdropFilter: 'blur(8px)',
-    boxShadow: '0 0 20px rgba(26,107,255,0.5)'
-  },
   info: { padding: '8px 10px 10px' },
   title: {
     color: '#ddd', fontSize: '12px', fontWeight: 700, margin: '0 0 3px',
@@ -137,11 +118,48 @@ const gc = {
   meta: { color: '#444', fontSize: '11px', margin: 0, fontFamily: "'Syne',sans-serif" }
 };
 
+// ── Loader ────────────────────────────────────────────────────────────────────
+function Loader() {
+  return (
+    <div style={{ height: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+      <div style={{ position: 'relative', width: '44px', height: '44px' }}>
+        <div style={{
+          position: 'absolute', inset: 0, borderRadius: '50%',
+          background: 'rgba(26,107,255,0.06)',
+          border: '1px solid rgba(26,107,255,0.15)',
+          boxShadow: '0 0 20px rgba(26,107,255,0.08)'
+        }} />
+        <div style={{
+          position: 'absolute', inset: '4px', borderRadius: '50%',
+          border: '2px solid transparent',
+          borderTop: '2px solid #1a6bff',
+          animation: 'spin 0.85s cubic-bezier(0.4,0,0.2,1) infinite'
+        }} />
+      </div>
+      <p style={{ color: 'rgba(26,107,255,0.4)', fontSize: '10px', fontWeight: 800, letterSpacing: '1.5px', fontFamily: "'Syne',sans-serif", margin: 0 }}>
+        LOADING
+      </p>
+    </div>
+  );
+}
+
+function EndMarker() {
+  return (
+    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '0 24px' }}>
+      <div style={{ flex: 1, height: '1px', background: 'rgba(26,107,255,0.1)' }} />
+      <p style={{ color: '#252535', fontSize: '11px', fontWeight: 700, fontFamily: "'Syne',sans-serif", margin: 0, whiteSpace: 'nowrap' }}>
+        You've seen it all
+      </p>
+      <div style={{ flex: 1, height: '1px', background: 'rgba(26,107,255,0.1)' }} />
+    </div>
+  );
+}
+
 // ── Main Feed ─────────────────────────────────────────────────────────────────
 export default function Feed() {
   const { user } = useAuth();
 
-  // Feed state
+  // ── Feed state ──────────────────────────────────────────────────────────────
   const [videos, setVideos]       = useState([]);
   const [sort, setSort]           = useState('trending');
   const [showSort, setShowSort]   = useState(false);
@@ -149,111 +167,147 @@ export default function Feed() {
   const [page, setPage]           = useState(0);
   const [loading, setLoading]     = useState(false);
   const [hasMore, setHasMore]     = useState(true);
+  // Set of seen IDs to prevent duplicates
+  const seenFeedIds = useRef(new Set());
 
-  // Search state
-  const [showSearch, setShowSearch]   = useState(false);
-  const [searchInput, setSearchInput] = useState('');
-  const [searchQuery, setSearchQuery] = useState(''); // committed query
+  // ── Search state ────────────────────────────────────────────────────────────
+  const [showSearch, setShowSearch]       = useState(false);
+  const [searchInput, setSearchInput]     = useState('');
+  const [searchQuery, setSearchQuery]     = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [searchPage, setSearchPage]   = useState(0);
+  const [searchPage, setSearchPage]       = useState(0);
   const [searchHasMore, setSearchHasMore] = useState(true);
-
-  // Search grid vs reel mode
-  // null = feed mode, array index = reel mode starting from that video
-  const [reelStartIdx, setReelStartIdx] = useState(null);
+  const [reelStartIdx, setReelStartIdx]   = useState(null);
+  const seenSearchIds = useRef(new Set());
 
   const containerRef   = useRef(null);
   const reelRef        = useRef(null);
   const loadingRef     = useRef(false);
   const searchInputRef = useRef(null);
 
-  // ── Load feed videos ───────────────────────────────────────────────────────
+  // ── Load feed ───────────────────────────────────────────────────────────────
   const load = useCallback(async (sortBy, pageNum, reset = false) => {
     if (loadingRef.current) return;
     loadingRef.current = true;
     setLoading(true);
     try {
       const { videos: data, hasMore: more } = await fetchEpornerVideos({ sort: sortBy, page: pageNum, query: '' });
-      if (reset) setVideos(data);
-      else setVideos(prev => [...prev, ...data]);
-      setHasMore(more);
-    } catch(e) { console.error(e); }
+      // Deduplicate: only add videos we haven't seen yet
+      const fresh = data.filter(v => !seenFeedIds.current.has(v.id));
+      fresh.forEach(v => seenFeedIds.current.add(v.id));
+      if (reset) {
+        seenFeedIds.current = new Set(fresh.map(v => v.id));
+        setVideos(fresh);
+      } else {
+        setVideos(prev => [...prev, ...fresh]);
+      }
+      setHasMore(more && fresh.length > 0);
+    } catch (e) { console.error('Feed load error:', e); }
     setLoading(false);
     loadingRef.current = false;
   }, []);
 
+  // Reset and reload when sort changes
   useEffect(() => {
+    seenFeedIds.current = new Set();
     setPage(0); setHasMore(true); setActiveIdx(0);
     load(sort, 0, true);
     if (containerRef.current) containerRef.current.scrollTop = 0;
   }, [sort]); // eslint-disable-line
 
-  // ── Load search results ────────────────────────────────────────────────────
+  // ── Load search results ─────────────────────────────────────────────────────
   const loadSearch = useCallback(async (query, pageNum, reset = false) => {
-    if (!query.trim()) return;
+    if (!query.trim() || loadingRef.current) return;
+    loadingRef.current = true;
     setSearchLoading(true);
     try {
       const { videos: data, hasMore: more } = await fetchEpornerVideos({ sort: 'top-rated', page: pageNum, query });
-      if (reset) setSearchResults(data);
-      else setSearchResults(prev => [...prev, ...data]);
-      setSearchHasMore(more);
-    } catch(e) { console.error(e); }
+      const fresh = data.filter(v => !seenSearchIds.current.has(v.id));
+      fresh.forEach(v => seenSearchIds.current.add(v.id));
+      if (reset) {
+        seenSearchIds.current = new Set(fresh.map(v => v.id));
+        setSearchResults(fresh);
+      } else {
+        setSearchResults(prev => [...prev, ...fresh]);
+      }
+      setSearchHasMore(more && fresh.length > 0);
+    } catch (e) { console.error('Search load error:', e); }
     setSearchLoading(false);
+    loadingRef.current = false;
   }, []);
 
+  // Trigger search when query changes
   useEffect(() => {
     if (searchQuery) {
+      seenSearchIds.current = new Set();
       setSearchPage(0); setSearchHasMore(true); setReelStartIdx(null);
       loadSearch(searchQuery, 0, true);
     }
   }, [searchQuery]); // eslint-disable-line
 
-  // ── Feed IntersectionObserver ──────────────────────────────────────────────
+  // ── Feed IntersectionObserver ───────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
     if (!container || searchQuery) return;
     const items = container.querySelectorAll('.video-slide');
+    if (!items.length) return;
     const obs = new IntersectionObserver(entries => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const idx = parseInt(entry.target.dataset.idx);
-          setActiveIdx(idx);
-          if (idx >= videos.length - 2 && hasMore && !loadingRef.current) {
-            const next = page + 1;
-            setPage(next);
-            load(sort, next);
-          }
+        if (!entry.isIntersecting) return;
+        const idx = parseInt(entry.target.dataset.idx);
+        setActiveIdx(idx);
+        // Trigger next page when 3 from end
+        if (idx >= videos.length - 3 && hasMore && !loadingRef.current) {
+          const next = page + 1;
+          setPage(next);
+          load(sort, next, false);
         }
       });
     }, { threshold: 0.7, root: container });
     items.forEach(el => obs.observe(el));
     return () => obs.disconnect();
-  }, [videos, sort, page, hasMore, load, searchQuery]);
+  }, [videos.length, sort, page, hasMore, load, searchQuery]);
 
-  // ── Search reel IntersectionObserver ──────────────────────────────────────
+  // ── Search reel IntersectionObserver ────────────────────────────────────────
   useEffect(() => {
     const container = reelRef.current;
     if (!container || reelStartIdx === null) return;
     const items = container.querySelectorAll('.search-reel-slide');
+    if (!items.length) return;
     const obs = new IntersectionObserver(entries => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const idx = parseInt(entry.target.dataset.idx);
-          setActiveIdx(idx);
-          if (idx >= searchResults.length - 2 && searchHasMore && !loadingRef.current) {
-            const next = searchPage + 1;
-            setSearchPage(next);
-            loadSearch(searchQuery, next);
-          }
+        if (!entry.isIntersecting) return;
+        const idx = parseInt(entry.target.dataset.idx);
+        setActiveIdx(idx);
+        if (idx >= searchResults.length - 3 && searchHasMore && !loadingRef.current) {
+          const next = searchPage + 1;
+          setSearchPage(next);
+          loadSearch(searchQuery, next, false);
         }
       });
     }, { threshold: 0.7, root: container });
     items.forEach(el => obs.observe(el));
     return () => obs.disconnect();
-  }, [searchResults, reelStartIdx, searchPage, searchHasMore, searchQuery, loadSearch]);
+  }, [searchResults.length, reelStartIdx, searchPage, searchHasMore, searchQuery, loadSearch]);
 
-  // Focus search input when overlay opens
+  // ── Search grid infinite scroll ─────────────────────────────────────────────
+  const gridSentinelRef = useRef(null);
+  useEffect(() => {
+    const sentinel = gridSentinelRef.current;
+    if (!sentinel || !searchQuery || reelStartIdx !== null) return;
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && searchHasMore && !searchLoading && !loadingRef.current) {
+        const next = searchPage + 1;
+        setSearchPage(next);
+        loadSearch(searchQuery, next, false);
+      }
+    }, { threshold: 0.1 });
+    obs.observe(sentinel);
+    return () => obs.disconnect();
+  }, [searchQuery, searchPage, searchHasMore, searchLoading, reelStartIdx, loadSearch]);
+
+  // Focus search input on open
   useEffect(() => {
     if (showSearch && searchInputRef.current) {
       setTimeout(() => searchInputRef.current?.focus(), 100);
@@ -269,12 +323,12 @@ export default function Feed() {
 
   const handleGridPlay = (video) => {
     const idx = searchResults.findIndex(v => v.id === video.id);
-    setReelStartIdx(idx >= 0 ? idx : 0);
-    setActiveIdx(idx >= 0 ? idx : 0);
-    // scroll reel to correct position after render
+    const startAt = idx >= 0 ? idx : 0;
+    setReelStartIdx(startAt);
+    setActiveIdx(startAt);
     setTimeout(() => {
       if (reelRef.current) {
-        const slide = reelRef.current.querySelector(`.search-reel-slide[data-idx="${idx >= 0 ? idx : 0}"]`);
+        const slide = reelRef.current.querySelector(`.search-reel-slide[data-idx="${startAt}"]`);
         if (slide) slide.scrollIntoView({ behavior: 'instant' });
       }
     }, 50);
@@ -285,57 +339,49 @@ export default function Feed() {
     setSearchInput('');
     setSearchResults([]);
     setReelStartIdx(null);
+    seenSearchIds.current = new Set();
   };
 
-  // Is search grid visible?
-  const showGrid = searchQuery && reelStartIdx === null;
-  // Is search reel visible?
+  const showGrid       = searchQuery && reelStartIdx === null;
   const showSearchReel = searchQuery && reelStartIdx !== null;
-  // Is main feed visible?
-  const showFeed = !searchQuery;
+  const showFeed       = !searchQuery;
 
   return (
-    <div style={styles.wrap}>
+    <div style={s.wrap}>
 
-      {/* ── Top controls bar ─────────────────────────────────────────────── */}
-      <div style={styles.topRow}>
-        {/* Left: sort button OR back button in search reel */}
+      {/* ── Top bar ───────────────────────────────────────────────────────── */}
+      <div style={s.topRow}>
         {showSearchReel ? (
-          <button style={styles.backBtn} onClick={() => setReelStartIdx(null)}>
-            <BackIcon />
-            <span style={styles.backLabel}>Results</span>
+          <button style={s.backBtn} onClick={() => setReelStartIdx(null)}>
+            <BackIcon /><span style={s.backLabel}>Results</span>
           </button>
         ) : showGrid ? (
-          <button style={styles.backBtn} onClick={clearSearch}>
-            <BackIcon />
-            <span style={styles.backLabel}>Feed</span>
+          <button style={s.backBtn} onClick={clearSearch}>
+            <BackIcon /><span style={s.backLabel}>Feed</span>
           </button>
         ) : (
-          <button style={styles.sortBtn} onClick={() => setShowSort(s => !s)}>
-            <ChevronDown />
-            <span style={styles.sortLabel}>{SORT_OPTIONS.find(o => o.key === sort)?.label}</span>
+          <button style={s.sortBtn} onClick={() => setShowSort(v => !v)}>
+            <ChevronDown /><span style={s.sortLabel}>{SORT_OPTIONS.find(o => o.key === sort)?.label}</span>
           </button>
         )}
-
-        {/* Right: search button */}
-        <button style={styles.searchBtn} onClick={() => setShowSearch(true)}>
+        <button style={s.searchBtn} onClick={() => setShowSearch(true)}>
           <SearchIcon size={20} />
         </button>
       </div>
 
-      {/* ── Sort bottom sheet ─────────────────────────────────────────────── */}
+      {/* ── Sort sheet ────────────────────────────────────────────────────── */}
       {showSort && (
-        <div style={styles.sheet} onClick={() => setShowSort(false)}>
-          <div style={styles.sheetCard} onClick={e => e.stopPropagation()}>
-            <div style={styles.sheetHandle} />
-            <p style={styles.sheetTitle}>SORT VIDEOS</p>
+        <div style={s.sheet} onClick={() => setShowSort(false)}>
+          <div style={s.sheetCard} onClick={e => e.stopPropagation()}>
+            <div style={s.sheetHandle} />
+            <p style={s.sheetTitle}>SORT VIDEOS</p>
             {SORT_OPTIONS.map(opt => {
               const active = sort === opt.key;
               return (
-                <button key={opt.key} style={styles.sheetOption}
+                <button key={opt.key} style={s.sheetOption}
                   onClick={() => { setSort(opt.key); setShowSort(false); }}>
-                  <span style={styles.sheetEmoji}>{opt.emoji}</span>
-                  <span style={{ ...styles.sheetLabel, color: active ? '#1a6bff' : '#ccc' }}>{opt.label}</span>
+                  <span style={s.sheetEmoji}>{opt.emoji}</span>
+                  <span style={{ ...s.sheetLabel, color: active ? '#1a6bff' : '#ccc' }}>{opt.label}</span>
                   {active && (
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ marginLeft: 'auto' }}>
                       <path d="M5 12l5 5L20 7" stroke="#1a6bff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -350,9 +396,9 @@ export default function Feed() {
 
       {/* ── Search overlay ────────────────────────────────────────────────── */}
       {showSearch && (
-        <div style={styles.searchOverlay} onClick={() => setShowSearch(false)}>
-          <div style={styles.searchBox} onClick={e => e.stopPropagation()}>
-            <div style={styles.searchInputRow}>
+        <div style={s.searchOverlay} onClick={() => setShowSearch(false)}>
+          <div style={s.searchBox} onClick={e => e.stopPropagation()}>
+            <div style={s.searchInputRow}>
               <SearchIcon size={18} />
               <input
                 ref={searchInputRef}
@@ -360,113 +406,83 @@ export default function Feed() {
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleSearchSubmit(); if (e.key === 'Escape') setShowSearch(false); }}
                 placeholder="Search videos..."
-                style={styles.searchInput}
+                style={s.searchInput}
               />
               {searchInput && (
-                <button onClick={() => setSearchInput('')} style={styles.iconBtn}><CloseIcon /></button>
+                <button onClick={() => setSearchInput('')} style={s.iconBtn}><CloseIcon /></button>
               )}
             </div>
-            <div style={styles.searchActions}>
-              <button onClick={() => setShowSearch(false)} style={styles.cancelBtn}>Cancel</button>
-              <button onClick={handleSearchSubmit} style={styles.goBtn}>Search</button>
+            <div style={s.searchActions}>
+              <button onClick={() => setShowSearch(false)} style={s.cancelBtn}>Cancel</button>
+              <button onClick={handleSearchSubmit} style={s.goBtn}>Search</button>
             </div>
             {searchQuery && (
-              <button onClick={() => { clearSearch(); setShowSearch(false); }} style={styles.clearQueryBtn}>
-                Clear current: "{searchQuery}"
+              <button onClick={() => { clearSearch(); setShowSearch(false); }} style={s.clearBtn}>
+                Clear: "{searchQuery}"
               </button>
             )}
           </div>
         </div>
       )}
 
-      {/* ── MAIN FEED (no search) ─────────────────────────────────────────── */}
+      {/* ── Main feed ─────────────────────────────────────────────────────── */}
       {showFeed && (
-        <div ref={containerRef} style={styles.feed}>
+        <div ref={containerRef} style={s.feed}>
           {videos.length === 0 && !loading && (
-            <div style={styles.emptyWrap}><p style={styles.emptyText}>Loading videos…</p></div>
+            <div style={s.emptyWrap}><p style={s.emptyText}>Loading…</p></div>
           )}
           {videos.map((v, i) => (
-            <div key={`feed-${v.id}-${i}`} data-idx={i} className="video-slide" style={styles.slide}>
+            <div key={`f-${v.id}`} data-idx={i} className="video-slide" style={s.slide}>
               <VideoPlayer video={v} userId={user?.id} isActive={activeIdx === i} />
             </div>
           ))}
-          {loading && <Loader />}
+          {loading && (
+            <div style={s.loaderSlide}><Loader /></div>
+          )}
           {!hasMore && videos.length > 0 && !loading && <EndMarker />}
         </div>
       )}
 
-      {/* ── SEARCH GRID ──────────────────────────────────────────────────── */}
+      {/* ── Search grid ───────────────────────────────────────────────────── */}
       {showGrid && (
-        <div style={styles.gridWrap}>
-          <div style={styles.gridHeader}>
-            <p style={styles.gridHeading}>Results for</p>
-            <p style={styles.gridQuery}>"{searchQuery}"</p>
-            <p style={styles.gridCount}>{searchResults.length} videos found</p>
+        <div style={s.gridWrap}>
+          <div style={s.gridHeader}>
+            <p style={s.gridSub}>RESULTS FOR</p>
+            <p style={s.gridQuery}>"{searchQuery}"</p>
+            <p style={s.gridCount}>{searchResults.length} videos</p>
           </div>
           {searchLoading && searchResults.length === 0 && (
-            <div style={styles.emptyWrap}><Loader /></div>
+            <div style={s.emptyWrap}><Loader /></div>
           )}
-          <div style={styles.grid}>
-            {searchResults.map((v, i) => (
-              <GridCard key={`grid-${v.id}-${i}`} video={v} onPlay={handleGridPlay} />
+          <div style={s.grid}>
+            {searchResults.map((v) => (
+              <GridCard key={`g-${v.id}`} video={v} onPlay={handleGridPlay} />
             ))}
           </div>
           {searchLoading && searchResults.length > 0 && <Loader />}
           {!searchHasMore && searchResults.length > 0 && !searchLoading && <EndMarker />}
-          {/* Load more on scroll */}
-          <div style={{ height: '1px' }} ref={el => {
-            if (!el) return;
-            const obs = new IntersectionObserver(([entry]) => {
-              if (entry.isIntersecting && searchHasMore && !searchLoading) {
-                const next = searchPage + 1;
-                setSearchPage(next);
-                loadSearch(searchQuery, next);
-              }
-            });
-            obs.observe(el);
-            return () => obs.disconnect();
-          }} />
+          {/* Sentinel for grid infinite scroll */}
+          <div ref={gridSentinelRef} style={{ height: '10px' }} />
         </div>
       )}
 
-      {/* ── SEARCH REEL (after tapping a grid video) ─────────────────────── */}
+      {/* ── Search reel ───────────────────────────────────────────────────── */}
       {showSearchReel && (
-        <div ref={reelRef} style={styles.feed}>
+        <div ref={reelRef} style={s.feed}>
           {searchResults.map((v, i) => (
-            <div key={`sreel-${v.id}-${i}`} data-idx={i} className="search-reel-slide" style={styles.slide}>
+            <div key={`sr-${v.id}`} data-idx={i} className="search-reel-slide" style={s.slide}>
               <VideoPlayer video={v} userId={user?.id} isActive={activeIdx === i} />
             </div>
           ))}
-          {searchLoading && <Loader />}
+          {searchLoading && <div style={s.loaderSlide}><Loader /></div>}
           {!searchHasMore && searchResults.length > 0 && !searchLoading && <EndMarker />}
         </div>
       )}
 
-      {/* ── Banner Ad ────────────────────────────────────────────────────── */}
-      <div style={styles.bannerAd}>
+      {/* ── Banner ad ─────────────────────────────────────────────────────── */}
+      <div style={s.bannerAd}>
         <AdsterraBanner />
       </div>
-    </div>
-  );
-}
-
-// ── Shared UI helpers ─────────────────────────────────────────────────────────
-function Loader() {
-  return (
-    <div style={{ height: '100px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
-      <div style={{ width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(26,107,255,0.08)', border: '1px solid rgba(26,107,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', boxShadow: '0 0 20px rgba(26,107,255,0.12)' }}>
-        <div style={{ position: 'absolute', inset: '4px', borderRadius: '50%', border: '2px solid rgba(26,107,255,0.1)', borderTop: '2px solid #1a6bff', animation: 'spin 0.9s cubic-bezier(0.4,0,0.2,1) infinite' }} />
-      </div>
-      <p style={{ color: 'rgba(26,107,255,0.45)', fontSize: '11px', fontWeight: 700, letterSpacing: '1px', fontFamily: "'Syne',sans-serif", margin: 0 }}>Loading…</p>
-    </div>
-  );
-}
-function EndMarker() {
-  return (
-    <div style={{ height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '0 24px' }}>
-      <div style={{ flex: 1, height: '1px', background: 'rgba(26,107,255,0.12)' }} />
-      <p style={{ color: '#2a2a3a', fontSize: '11px', fontWeight: 700, fontFamily: "'Syne',sans-serif", whiteSpace: 'nowrap', margin: 0 }}>You've seen it all</p>
-      <div style={{ flex: 1, height: '1px', background: 'rgba(26,107,255,0.12)' }} />
     </div>
   );
 }
@@ -479,38 +495,36 @@ const glass = {
   border: '1px solid rgba(26,107,255,0.25)',
 };
 
-const styles = {
+const s = {
   wrap: { position: 'fixed', inset: 0, background: '#050508' },
 
   topRow: {
     position: 'fixed', top: '14px', left: '14px', right: '14px',
     zIndex: 50, display: 'flex', justifyContent: 'space-between', alignItems: 'center'
   },
-
   sortBtn: {
     ...glass, borderRadius: '20px', color: '#fff',
     padding: '8px 14px 8px 10px',
     display: 'flex', alignItems: 'center', gap: '6px',
     cursor: 'pointer', fontSize: '13px', fontWeight: 700,
-    fontFamily: "'Syne',sans-serif",
+    fontFamily: "'Syne',sans-serif", border: 'none',
     WebkitTapHighlightColor: 'transparent'
   },
   sortLabel: { lineHeight: 1 },
-
   backBtn: {
     ...glass, borderRadius: '20px', color: '#fff',
     padding: '8px 14px 8px 10px',
     display: 'flex', alignItems: 'center', gap: '8px',
-    cursor: 'pointer', fontFamily: "'Syne',sans-serif",
+    cursor: 'pointer', border: 'none',
+    fontFamily: "'Syne',sans-serif",
     WebkitTapHighlightColor: 'transparent'
   },
   backLabel: { fontSize: '13px', fontWeight: 700, lineHeight: 1 },
-
   searchBtn: {
     ...glass, borderRadius: '50%',
     width: '40px', height: '40px',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    cursor: 'pointer', flexShrink: 0,
+    cursor: 'pointer', flexShrink: 0, border: 'none',
     WebkitTapHighlightColor: 'transparent'
   },
 
@@ -545,8 +559,8 @@ const styles = {
 
   searchOverlay: {
     position: 'fixed', inset: 0, zIndex: 300,
-    background: 'rgba(0,0,8,0.85)', backdropFilter: 'blur(8px)',
-    display: 'flex', alignItems: 'flex-start', paddingTop: '60px',
+    background: 'rgba(0,0,8,0.88)', backdropFilter: 'blur(10px)',
+    display: 'flex', alignItems: 'flex-start', paddingTop: '56px'
   },
   searchBox: {
     width: 'calc(100% - 32px)', margin: '0 16px',
@@ -554,7 +568,7 @@ const styles = {
     border: '1px solid rgba(26,107,255,0.25)',
     borderRadius: '20px', padding: '16px',
     backdropFilter: 'blur(24px)',
-    boxShadow: '0 8px 40px rgba(26,107,255,0.15)',
+    boxShadow: '0 8px 40px rgba(26,107,255,0.15)'
   },
   searchInputRow: {
     display: 'flex', alignItems: 'center', gap: '10px',
@@ -564,14 +578,20 @@ const styles = {
   },
   searchInput: {
     flex: 1, background: 'none', border: 'none', outline: 'none',
-    color: '#fff', fontSize: '16px', fontFamily: "'Syne',sans-serif", fontWeight: 600
+    color: '#fff', fontSize: '16px',
+    fontFamily: "'Syne',sans-serif", fontWeight: 600
   },
-  iconBtn: { background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: 0 },
+  iconBtn: {
+    background: 'none', border: 'none', cursor: 'pointer',
+    display: 'flex', alignItems: 'center', padding: 0
+  },
   searchActions: { display: 'flex', gap: '10px', marginTop: '12px' },
   cancelBtn: {
-    flex: 1, padding: '11px', background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px',
-    color: '#888', fontSize: '14px', fontWeight: 700,
+    flex: 1, padding: '11px',
+    background: 'rgba(255,255,255,0.05)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '10px', color: '#888',
+    fontSize: '14px', fontWeight: 700,
     cursor: 'pointer', fontFamily: "'Syne',sans-serif"
   },
   goBtn: {
@@ -582,22 +602,28 @@ const styles = {
     fontFamily: "'Syne',sans-serif",
     boxShadow: '0 4px 16px rgba(26,107,255,0.35)'
   },
-  clearQueryBtn: {
+  clearBtn: {
     width: '100%', marginTop: '10px', padding: '8px',
-    background: 'rgba(255,60,60,0.06)', border: '1px solid rgba(255,60,60,0.12)',
-    borderRadius: '8px', color: '#ff6b6b', fontSize: '12px',
-    fontWeight: 700, cursor: 'pointer', fontFamily: "'Syne',sans-serif"
+    background: 'rgba(255,60,60,0.06)',
+    border: '1px solid rgba(255,60,60,0.12)',
+    borderRadius: '8px', color: '#ff6b6b',
+    fontSize: '12px', fontWeight: 700,
+    cursor: 'pointer', fontFamily: "'Syne',sans-serif"
   },
 
   feed: {
     width: '100%', height: 'calc(100% - 118px)',
     overflowY: 'scroll', scrollSnapType: 'y mandatory',
-    WebkitOverflowScrolling: 'touch',
-    marginTop: 0
+    WebkitOverflowScrolling: 'touch'
   },
   slide: {
     width: '100%', height: 'calc(100vh - 118px)',
     scrollSnapAlign: 'start', flexShrink: 0, position: 'relative'
+  },
+  loaderSlide: {
+    width: '100%', height: '100px',
+    scrollSnapAlign: 'none', display: 'flex',
+    alignItems: 'center', justifyContent: 'center'
   },
 
   gridWrap: {
@@ -606,15 +632,25 @@ const styles = {
     WebkitOverflowScrolling: 'touch'
   },
   gridHeader: { padding: '0 16px 16px' },
-  gridHeading: { color: '#555', fontSize: '11px', fontWeight: 700, letterSpacing: '1px', margin: '0 0 2px', fontFamily: "'Syne',sans-serif", textTransform: 'uppercase' },
-  gridQuery: { color: '#fff', fontSize: '20px', fontWeight: 800, margin: '0 0 4px', fontFamily: "'Syne',sans-serif" },
+  gridSub: {
+    color: '#555', fontSize: '10px', fontWeight: 800,
+    letterSpacing: '1.5px', margin: '0 0 2px',
+    fontFamily: "'Syne',sans-serif"
+  },
+  gridQuery: {
+    color: '#fff', fontSize: '20px', fontWeight: 800,
+    margin: '0 0 4px', fontFamily: "'Syne',sans-serif"
+  },
   gridCount: { color: '#444', fontSize: '12px', margin: 0, fontFamily: "'Syne',sans-serif" },
   grid: {
     display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)',
     gap: '10px', padding: '0 14px'
   },
 
-  emptyWrap: { height: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  emptyWrap: {
+    height: '60vh', display: 'flex',
+    alignItems: 'center', justifyContent: 'center'
+  },
   emptyText: { color: '#444', fontSize: '15px', fontFamily: "'Syne',sans-serif" },
 
   bannerAd: {
