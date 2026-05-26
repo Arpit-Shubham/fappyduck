@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /account
+Disallow: /history
+Disallow: /liked
+
+Sitemap: https://fappyduck.com/sitemap.xml
