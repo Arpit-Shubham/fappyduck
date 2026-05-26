@@ -67,10 +67,10 @@ function AdsterraPreroll() {
     el.dataset.loaded = 'true';
     const s1 = document.createElement('script');
     s1.type = 'text/javascript';
-    s1.text = `atOptions={'key':'6088494202eb2287cc5144d18f71f3ab','format':'iframe','height':50,'width':320,'params':{}};`;
+    s1.text = `atOptions={'key':'c5831a750d0ec46ab4e86855aa45bdc1','format':'iframe','height':50,'width':320,'params':{}};`;
     const s2 = document.createElement('script');
     s2.type = 'text/javascript';
-    s2.src = 'https://www.topcreativeformat.com/6088494202eb2287cc5144d18f71f3ab/invoke.js';
+    s2.src = 'https://scarleterror.com/c5831a750d0ec46ab4e86855aa45bdc1/invoke.js';
     el.appendChild(s1); el.appendChild(s2);
   }, []);
   return <div ref={ref} style={{ width: '320px', height: '50px', margin: '10px auto 0', borderRadius: '6px', overflow: 'hidden' }} />;
