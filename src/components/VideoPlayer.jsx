@@ -99,7 +99,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
   const [fitPopup, setFitPopup]       = useState('');
   const [skipAnim, setSkipAnim]       = useState('');
   const [speedActive, setSpeedActive] = useState(false);
-  const [userInteracted, setUserInteracted] = useState(false); // tracks first tap for unmute
 
   const viewTracked    = useRef(false);
   const tapTimer       = useRef(null);
@@ -110,11 +109,6 @@ export default function VideoPlayer({ video, userId, isActive }) {
 
   // Is this an eporner embed video?
   const isEmbed = !!video.is_embed;
-
-  // Reset mute state when a new video becomes active
-  useEffect(() => {
-    if (!isActive) setUserInteracted(false);
-  }, [video.id, isActive]);
 
   // ── HLS / direct video loader (non-embed only) ────────────────────────────
   useEffect(() => {
@@ -133,17 +127,52 @@ export default function VideoPlayer({ video, userId, isActive }) {
     return () => { if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; } };
   }, [video.stream_url, isEmbed]);
 
-  // ── Play / pause ─────────────────────────────────────────────────────────
+  // ── Thumbnail visible state (shown briefly before video plays) ──────────────
+  const [showThumb, setShowThumb] = useState(true);
+  const thumbTimer    = useRef(null);
+  const engageTimer   = useRef(null);
+  const adTriggered   = useRef(false);
+
+  // ── Main active/inactive controller ──────────────────────────────────────
   useEffect(() => {
     if (isActive) {
-      if (!adShown) { setShowAd(true); return; }
-      if (!isEmbed) videoRef.current?.play().catch(() => {});
-      setPlaying(true);
+      // Step 1: show thumbnail for 0.8s
+      setShowThumb(true);
+      setPlaying(false);
+      thumbTimer.current = setTimeout(() => {
+        // Step 2: hide thumb, start playing
+        setShowThumb(false);
+        setPlaying(true);
+        if (!isEmbed) videoRef.current?.play().catch(() => {});
+        // Step 3: if user watches 3s, show ad (once per reel)
+        if (!adShown && !adTriggered.current) {
+          engageTimer.current = setTimeout(() => {
+            adTriggered.current = true;
+            setShowAd(true);
+            if (!isEmbed) videoRef.current?.pause();
+            setPlaying(false);
+          }, 3000);
+        }
+      }, 800);
     } else {
+      // Leaving reel — clear all timers, pause
+      clearTimeout(thumbTimer.current);
+      clearTimeout(engageTimer.current);
       if (!isEmbed) videoRef.current?.pause();
-      setPlaying(false); setShowAd(false);
+      setPlaying(false);
+      setShowAd(false);
+      setShowThumb(true);
     }
-  }, [isActive, adShown, isEmbed]);
+    return () => {
+      clearTimeout(thumbTimer.current);
+      clearTimeout(engageTimer.current);
+    };
+  }, [isActive, isEmbed]); // eslint-disable-line
+
+  // Reset adTriggered when video changes
+  useEffect(() => {
+    adTriggered.current = false;
+  }, [video.id]);
 
   // ── Ad countdown ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -166,7 +195,7 @@ export default function VideoPlayer({ video, userId, isActive }) {
 
   // ── View tracking ─────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!isActive || !playing || viewTracked.current) return;
+    if (!isActive || viewTracked.current) return;
     const t = setTimeout(async () => {
       viewTracked.current = true;
       if (!isEmbed) {
@@ -327,11 +356,9 @@ export default function VideoPlayer({ video, userId, isActive }) {
 
   const currentObjectFit = FIT_MODES[fitMode];
 
-  // Build eporner embed URL
-  // mute=1 on first load (browser policy), mute=0 after user interacts
-  const muteParam = userInteracted ? 0 : 1;
+  // Embed URL: autoplay=1 as soon as active, mute=0 (browser may override to muted on first load)
   const embedSrc = video.embed_url
-    ? `${video.embed_url}?autoplay=${isActive && adShown ? 1 : 0}&mute=${muteParam}`
+    ? `${video.embed_url}?autoplay=${isActive && !showThumb ? 1 : 0}&mute=0&loop=1`
     : '';
 
   return (
@@ -350,7 +377,7 @@ export default function VideoPlayer({ video, userId, isActive }) {
       {isEmbed ? (
         <iframe
           ref={iframeRef}
-          src={isActive && adShown ? embedSrc : ''}
+          src={isActive && !showThumb ? embedSrc : ''}
           style={styles.iframe}
           allowFullScreen
           allow="autoplay; fullscreen"
@@ -370,25 +397,8 @@ export default function VideoPlayer({ video, userId, isActive }) {
         />
       )}
 
-      {/* Tap-to-unmute overlay — shown on first video until user taps */}
-      {isEmbed && isActive && adShown && !userInteracted && (
-        <div
-          style={styles.unmuteOverlay}
-          onClick={() => setUserInteracted(true)}
-        >
-          <div style={styles.unmuteBtn}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M11 5L6 9H2v6h4l5 4V5z" fill="rgba(255,255,255,0.9)"/>
-              <path d="M15.54 8.46a5 5 0 010 7.07M19.07 4.93a10 10 0 010 14.14" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round"/>
-              <line x1="1" y1="1" x2="23" y2="23" stroke="rgba(255,255,255,0.9)" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-            <span style={styles.unmuteTxt}>Tap to unmute</span>
-          </div>
-        </div>
-      )}
-
-      {/* Thumbnail shown before ad finishes for embed videos */}
-      {isEmbed && !adShown && (
+      {/* Thumbnail shown briefly at start and while ad plays */}
+      {isEmbed && (showThumb || showAd) && (
         <div style={styles.thumbOverlay}>
           {video.thumbnail_url && (
             <img src={video.thumbnail_url} alt={video.title} style={styles.thumbImg} />
@@ -673,19 +683,4 @@ const styles = {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     boxShadow: '0 0 12px rgba(26,107,255,0.5)'
   },
-  unmuteOverlay: {
-    position: 'absolute', bottom: '130px', left: '50%',
-    transform: 'translateX(-50%)', zIndex: 8,
-    cursor: 'pointer'
-  },
-  unmuteBtn: {
-    display: 'flex', alignItems: 'center', gap: '8px',
-    background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(12px)',
-    border: '1px solid rgba(255,255,255,0.15)',
-    borderRadius: '20px', padding: '8px 16px'
-  },
-  unmuteTxt: {
-    color: 'rgba(255,255,255,0.85)', fontSize: '13px',
-    fontWeight: 700, fontFamily: "'Syne',sans-serif"
-  }
 };
