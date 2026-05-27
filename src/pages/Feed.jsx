@@ -156,7 +156,8 @@ export default function Feed() {
 
   const containerRef    = useRef(null);
   const reelRef         = useRef(null);
-  const loadingRef      = useRef(false);
+  const feedLoadingRef   = useRef(false); // separate from search to prevent blocking
+  const searchLoadingRef = useRef(false);
   const searchInputRef  = useRef(null);
   const gridSentinelRef = useRef(null);
 
@@ -168,8 +169,8 @@ export default function Feed() {
 
   // ── Load feed ───────────────────────────────────────────────────────────────
   const load = useCallback(async (sortBy, pageNum, reset = false) => {
-    if (loadingRef.current) return;
-    loadingRef.current = true;
+    if (feedLoadingRef.current) return;
+    feedLoadingRef.current = true;
     setLoading(true);
     try {
       const { videos: data, hasMore: more } = await fetchEpornerVideos({ sort: sortBy, page: pageNum });
@@ -177,11 +178,18 @@ export default function Feed() {
       fresh.forEach(v => seenFeedIds.current.add(v.id));
       if (reset) { seenFeedIds.current = new Set(fresh.map(v => v.id)); setVideos(fresh); }
       else setVideos(prev => [...prev, ...fresh]);
-      setHasMore(more && fresh.length > 0);
+      // If all 10 were dupes try next page automatically
+      if (fresh.length === 0 && more) {
+        feedLoadingRef.current = false;
+        setLoading(false);
+        load(sortBy, pageNum + 1, false);
+        return;
+      }
+      setHasMore(more);
     } catch(e) { console.error(e); }
     setLoading(false);
-    loadingRef.current = false;
-  }, []);
+    feedLoadingRef.current = false;
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     seenFeedIds.current = new Set();
@@ -205,8 +213,8 @@ export default function Feed() {
 
   // ── Load search / tag results ───────────────────────────────────────────────
   const loadSearch = useCallback(async (query, pageNum, reset = false) => {
-    if (!query.trim() || loadingRef.current) return;
-    loadingRef.current = true;
+    if (!query.trim() || searchLoadingRef.current) return;
+    searchLoadingRef.current = true;
     setSearchLoading(true);
     try {
       const { videos: data, hasMore: more } = await fetchEpornerVideos({ sort: 'top-rated', page: pageNum, query });
@@ -214,11 +222,18 @@ export default function Feed() {
       fresh.forEach(v => seenSearchIds.current.add(v.id));
       if (reset) { seenSearchIds.current = new Set(fresh.map(v => v.id)); setSearchResults(fresh); }
       else setSearchResults(prev => [...prev, ...fresh]);
-      setSearchHasMore(more && fresh.length > 0);
+      // Auto-skip dupes
+      if (fresh.length === 0 && more) {
+        searchLoadingRef.current = false;
+        setSearchLoading(false);
+        loadSearch(query, pageNum + 1, false);
+        return;
+      }
+      setSearchHasMore(more);
     } catch(e) { console.error(e); }
     setSearchLoading(false);
-    loadingRef.current = false;
-  }, []);
+    searchLoadingRef.current = false;
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     if (searchQuery) {
@@ -240,7 +255,7 @@ export default function Feed() {
         const idx = parseInt(entry.target.dataset.idx);
         setActiveIdx(idx);
         updateUrl(videos[idx]?.id);
-        if (idx >= videos.length - 3 && hasMore && !loadingRef.current) {
+        if (idx >= videos.length - 5 && hasMore && !feedLoadingRef.current) {
           const next = page + 1; setPage(next); load(sort, next, false);
         }
       });
@@ -261,7 +276,7 @@ export default function Feed() {
         const idx = parseInt(entry.target.dataset.idx);
         setActiveIdx(idx);
         updateUrl(searchResults[idx]?.id);
-        if (idx >= searchResults.length - 3 && searchHasMore && !loadingRef.current) {
+        if (idx >= searchResults.length - 5 && searchHasMore && !searchLoadingRef.current) {
           const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
         }
       });
@@ -275,7 +290,7 @@ export default function Feed() {
     const sentinel = gridSentinelRef.current;
     if (!sentinel || !searchQuery || reelStartIdx !== null) return;
     const obs = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && searchHasMore && !searchLoading && !loadingRef.current) {
+      if (entries[0].isIntersecting && searchHasMore && !searchLoading && !searchLoadingRef.current) {
         const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
       }
     }, { threshold: 0.1 });
