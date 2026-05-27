@@ -134,7 +134,7 @@ export default function Feed() {
 
   // ── Feed state ──────────────────────────────────────────────────────────────
   const [videos, setVideos]       = useState([]);
-  const [sort, setSort]           = useState('trending');
+  const [sort, setSort]           = useState('latest');
   const [showSort, setShowSort]   = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
   const [page, setPage]           = useState(0);
@@ -156,6 +156,7 @@ export default function Feed() {
 
   const containerRef    = useRef(null);
   const reelRef         = useRef(null);
+  const feedRef         = useRef(null); // passed to VideoPlayer for fullscreen
   const feedLoadingRef   = useRef(false); // separate from search to prevent blocking
   const searchLoadingRef = useRef(false);
   const searchInputRef  = useRef(null);
@@ -438,13 +439,13 @@ export default function Feed() {
 
       {/* ── Main feed ─────────────────────────────────────────────────────── */}
       {showFeed && (
-        <div ref={containerRef} style={s.feed}>
+        <div ref={el => { containerRef.current = el; feedRef.current = el; }} style={s.feed}>
           {videos.length === 0 && !loading && (
             <div style={s.emptyWrap}><p style={s.emptyText}>Loading…</p></div>
           )}
           {videos.map((v, i) => (
             <div key={`f-${v.id}`} data-idx={i} className="video-slide" style={s.slide}>
-              <VideoPlayer video={v} userId={user?.id} isActive={activeIdx === i} onTagSearch={handleTagSearch} />
+              <VideoPlayer video={v} userId={user?.id} isActive={activeIdx === i} feedRef={feedRef} onTagSearch={handleTagSearch} />
             </div>
           ))}
           {loading && <div style={s.loaderSlide}><Loader /></div>}
@@ -475,7 +476,7 @@ export default function Feed() {
         <div ref={reelRef} style={s.feed}>
           {searchResults.map((v, i) => (
             <div key={`sr-${v.id}`} data-idx={i} className="search-reel-slide" style={s.slide}>
-              <VideoPlayer video={v} userId={user?.id} isActive={activeIdx === i} onTagSearch={handleTagSearch} />
+              <VideoPlayer video={v} userId={user?.id} isActive={activeIdx === i} feedRef={reelRef} onTagSearch={handleTagSearch} />
             </div>
           ))}
           {searchLoading && <div style={s.loaderSlide}><Loader /></div>}
