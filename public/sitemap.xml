@@ -1,18 +1,46 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-        xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9
-        http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://fappyduck.online/</loc>
-    <lastmod>2026-05-26</lastmod>
+    <lastmod>2026-05-27</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://fappyduck.online/account</loc>
-    <lastmod>2026-05-26</lastmod>
+    <lastmod>2026-05-27</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.3</priority>
   </url>
+  <!-- Category pages — each generates SEO-indexable URL when visited -->
+  <url><loc>https://fappyduck.online/v/amateur</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/anal</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/asian</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/bbw</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/bdsm</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/blonde</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/blowjob</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/brunette</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/creampie</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/cumshot</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/ebony</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/facial</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/gangbang</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/hardcore</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://fappyduck.online/v/indian</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://fappyduck.online/v/interracial</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/japanese</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/korean</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/latina</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/lesbian</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/massage</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/masturbation</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/mature</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/milf</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://fappyduck.online/v/pov</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/redhead</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/solo</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
+  <url><loc>https://fappyduck.online/v/squirt</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
+  <url><loc>https://fappyduck.online/v/teen</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://fappyduck.online/v/threesome</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
 </urlset>
