@@ -160,6 +160,7 @@ export default function Feed() {
   const feedLoadingRef   = useRef(false); // separate from search to prevent blocking
   const searchLoadingRef = useRef(false);
   const searchInputRef  = useRef(null);
+  const gridSentinelRef = useRef(null);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const updateUrl = useCallback((id) => {
@@ -167,30 +168,28 @@ export default function Feed() {
     window.history.replaceState(null, '', id ? `/v/${id}` : '/');
   }, []);
 
-  // ── Load feed (try/finally guarantees loadingRef always resets) ─────────────
+  // ── Load feed ───────────────────────────────────────────────────────────────
   const load = useCallback(async (sortBy, pageNum, reset = false) => {
     if (feedLoadingRef.current) return;
     feedLoadingRef.current = true;
     setLoading(true);
     try {
-      const { videos: data } = await fetchEpornerVideos({ sort: sortBy, page: pageNum });
+      const { videos: data, hasMore: more } = await fetchEpornerVideos({ sort: sortBy, page: pageNum });
       const fresh = data.filter(v => !seenFeedIds.current.has(v.id));
       fresh.forEach(v => seenFeedIds.current.add(v.id));
-      if (reset) {
-        seenFeedIds.current = new Set(fresh.map(v => v.id));
-        setVideos(fresh);
-      } else {
-        setVideos(prev => [...prev, ...fresh]);
+      if (reset) { seenFeedIds.current = new Set(fresh.map(v => v.id)); setVideos(fresh); }
+      else setVideos(prev => [...prev, ...fresh]);
+      // If all 10 were dupes try next page automatically
+      if (fresh.length === 0 && more) {
+        feedLoadingRef.current = false;
+        setLoading(false);
+        load(sortBy, pageNum + 1, false);
+        return;
       }
-      // hasMore = got a full page back (most reliable signal)
-      setHasMore(data.length === 10);
-    } catch (e) {
-      console.error('Feed load error:', e);
-    } finally {
-      // ALWAYS release the lock — no matter what happened above
-      setLoading(false);
-      feedLoadingRef.current = false;
-    }
+      setHasMore(more);
+    } catch(e) { console.error(e); }
+    setLoading(false);
+    feedLoadingRef.current = false;
   }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -213,29 +212,28 @@ export default function Feed() {
     }
   }, [paramId, videos.length]); // eslint-disable-line
 
-  // ── Load search / tag results (try/finally) ────────────────────────────────
+  // ── Load search / tag results ───────────────────────────────────────────────
   const loadSearch = useCallback(async (query, pageNum, reset = false) => {
     if (!query.trim() || searchLoadingRef.current) return;
     searchLoadingRef.current = true;
     setSearchLoading(true);
     try {
-      const { videos: data } = await fetchEpornerVideos({ sort: 'top-rated', page: pageNum, query });
+      const { videos: data, hasMore: more } = await fetchEpornerVideos({ sort: 'top-rated', page: pageNum, query });
       const fresh = data.filter(v => !seenSearchIds.current.has(v.id));
       fresh.forEach(v => seenSearchIds.current.add(v.id));
-      if (reset) {
-        seenSearchIds.current = new Set(fresh.map(v => v.id));
-        setSearchResults(fresh);
-      } else {
-        setSearchResults(prev => [...prev, ...fresh]);
+      if (reset) { seenSearchIds.current = new Set(fresh.map(v => v.id)); setSearchResults(fresh); }
+      else setSearchResults(prev => [...prev, ...fresh]);
+      // Auto-skip dupes
+      if (fresh.length === 0 && more) {
+        searchLoadingRef.current = false;
+        setSearchLoading(false);
+        loadSearch(query, pageNum + 1, false);
+        return;
       }
-      setSearchHasMore(data.length === 10);
-    } catch (e) {
-      console.error('Search load error:', e);
-    } finally {
-      // ALWAYS release the lock
-      setSearchLoading(false);
-      searchLoadingRef.current = false;
-    }
+      setSearchHasMore(more);
+    } catch(e) { console.error(e); }
+    setSearchLoading(false);
+    searchLoadingRef.current = false;
   }, []); // eslint-disable-line
 
   useEffect(() => {
@@ -246,106 +244,60 @@ export default function Feed() {
     }
   }, [searchQuery]); // eslint-disable-line
 
-  // ── Feed scroll handler (replaces IntersectionObserver — more reliable) ─────
-  // Uses stable refs so handler never needs to be re-attached
-  const videosRef       = useRef(videos);
-  const hasMoreRef      = useRef(hasMore);
-  const sortRef         = useRef(sort);
-  const pageRef         = useRef(page);
-  const searchQueryRef  = useRef(searchQuery);
-  const searchResultsRef = useRef(searchResults);
-  const searchHasMoreRef = useRef(searchHasMore);
-  const searchPageRef   = useRef(searchPage);
-  const reelStartRef    = useRef(reelStartIdx);
-
-  // Keep refs in sync with state (no re-subscription needed)
-  useEffect(() => { videosRef.current = videos; }, [videos]);
-  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
-  useEffect(() => { sortRef.current = sort; }, [sort]);
-  useEffect(() => { pageRef.current = page; }, [page]);
-  useEffect(() => { searchQueryRef.current = searchQuery; }, [searchQuery]);
-  useEffect(() => { searchResultsRef.current = searchResults; }, [searchResults]);
-  useEffect(() => { searchHasMoreRef.current = searchHasMore; }, [searchHasMore]);
-  useEffect(() => { searchPageRef.current = searchPage; }, [searchPage]);
-  useEffect(() => { reelStartRef.current = reelStartIdx; }, [reelStartIdx]);
-
-  // Main feed scroll — attached once, reads state via refs
+  // ── Feed IntersectionObserver ───────────────────────────────────────────────
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
-
-    const onScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const slideH = clientHeight;
-      if (slideH === 0) return;
-
-      // Which slide is most visible
-      const idx = Math.round(scrollTop / slideH);
-      if (idx !== activeIdx) {
+    if (!container || searchQuery) return;
+    const items = container.querySelectorAll('.video-slide');
+    if (!items.length) return;
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const idx = parseInt(entry.target.dataset.idx);
         setActiveIdx(idx);
-        updateUrl(videosRef.current[idx]?.id);
-      }
+        updateUrl(videos[idx]?.id);
+        if (idx >= videos.length - 5 && hasMore && !feedLoadingRef.current) {
+          const next = page + 1; setPage(next); load(sort, next, false);
+        }
+      });
+    }, { threshold: 0.7, root: container });
+    items.forEach(el => obs.observe(el));
+    return () => obs.disconnect();
+  }, [videos.length, sort, page, hasMore, load, searchQuery, updateUrl, videos]);
 
-      // Load next page when within 3 slides of end
-      const nearEnd = scrollTop + clientHeight >= scrollHeight - slideH * 3;
-      if (nearEnd && hasMoreRef.current && !feedLoadingRef.current) {
-        const next = pageRef.current + 1;
-        setPage(next);
-        load(sortRef.current, next, false);
-      }
-    };
-
-    container.addEventListener('scroll', onScroll, { passive: true });
-    return () => container.removeEventListener('scroll', onScroll);
-  }, []); // eslint-disable-line
-
-  // Search reel scroll — attached when reelRef mounts
+  // ── Search reel IntersectionObserver ────────────────────────────────────────
   useEffect(() => {
     const container = reelRef.current;
     if (!container || reelStartIdx === null) return;
-
-    const onScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const slideH = clientHeight;
-      if (slideH === 0) return;
-
-      const idx = Math.round(scrollTop / slideH);
-      if (idx !== activeIdx) {
+    const items = container.querySelectorAll('.search-reel-slide');
+    if (!items.length) return;
+    const obs = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const idx = parseInt(entry.target.dataset.idx);
         setActiveIdx(idx);
-        updateUrl(searchResultsRef.current[idx]?.id);
-      }
+        updateUrl(searchResults[idx]?.id);
+        if (idx >= searchResults.length - 5 && searchHasMore && !searchLoadingRef.current) {
+          const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
+        }
+      });
+    }, { threshold: 0.7, root: container });
+    items.forEach(el => obs.observe(el));
+    return () => obs.disconnect();
+  }, [searchResults.length, reelStartIdx, searchPage, searchHasMore, searchQuery, loadSearch, updateUrl, searchResults]);
 
-      const nearEnd = scrollTop + clientHeight >= scrollHeight - slideH * 3;
-      if (nearEnd && searchHasMoreRef.current && !searchLoadingRef.current) {
-        const next = searchPageRef.current + 1;
-        setSearchPage(next);
-        loadSearch(searchQueryRef.current, next, false);
-      }
-    };
-
-    container.addEventListener('scroll', onScroll, { passive: true });
-    return () => container.removeEventListener('scroll', onScroll);
-  }, [reelStartIdx]); // eslint-disable-line
-
-  // Grid scroll — simple scroll on gridWrap
-  const gridWrapRef = useRef(null);
+  // ── Grid sentinel ───────────────────────────────────────────────────────────
   useEffect(() => {
-    const el = gridWrapRef.current;
-    if (!el || !searchQuery || reelStartIdx !== null) return;
-
-    const onScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = el;
-      const nearEnd = scrollTop + clientHeight >= scrollHeight - 300;
-      if (nearEnd && searchHasMoreRef.current && !searchLoadingRef.current) {
-        const next = searchPageRef.current + 1;
-        setSearchPage(next);
-        loadSearch(searchQueryRef.current, next, false);
+    const sentinel = gridSentinelRef.current;
+    if (!sentinel || !searchQuery || reelStartIdx !== null) return;
+    const obs = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && searchHasMore && !searchLoading && !searchLoadingRef.current) {
+        const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
       }
-    };
-
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
-  }, [searchQuery, reelStartIdx]); // eslint-disable-line
+    }, { threshold: 0.1 });
+    obs.observe(sentinel);
+    return () => obs.disconnect();
+  }, [searchQuery, searchPage, searchHasMore, searchLoading, reelStartIdx, loadSearch]);
 
   // Focus search input
   useEffect(() => {
@@ -503,7 +455,7 @@ export default function Feed() {
 
       {/* ── Search grid ───────────────────────────────────────────────────── */}
       {showGrid && (
-        <div ref={gridWrapRef} style={s.gridWrap}>
+        <div style={s.gridWrap}>
           <div style={s.gridHeader}>
             <p style={s.gridSub}>RESULTS FOR</p>
             <p style={s.gridQuery}>{searchLabel}</p>
@@ -515,6 +467,7 @@ export default function Feed() {
           </div>
           {searchLoading && searchResults.length > 0 && <Loader />}
           {!searchHasMore && searchResults.length > 0 && !searchLoading && <EndMarker />}
+          <div ref={gridSentinelRef} style={{ height: '10px' }} />
         </div>
       )}
 
