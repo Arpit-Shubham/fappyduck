@@ -297,8 +297,7 @@ export default function Feed() {
 
     container.addEventListener('scroll', onScroll, { passive: true });
     return () => container.removeEventListener('scroll', onScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
+  }, []); // eslint-disable-line
 
   // Search reel scroll — attached when reelRef mounts
   useEffect(() => {
@@ -326,8 +325,7 @@ export default function Feed() {
 
     container.addEventListener('scroll', onScroll, { passive: true });
     return () => container.removeEventListener('scroll', onScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reelStartIdx]); 
+  }, [reelStartIdx]); // eslint-disable-line
 
   // Grid scroll — simple scroll on gridWrap
   const gridWrapRef = useRef(null);
@@ -347,8 +345,7 @@ export default function Feed() {
 
     el.addEventListener('scroll', onScroll, { passive: true });
     return () => el.removeEventListener('scroll', onScroll);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, reelStartIdx]); 
+  }, [searchQuery, reelStartIdx]); // eslint-disable-line
 
   // Focus search input
   useEffect(() => {
