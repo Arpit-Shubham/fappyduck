@@ -8,10 +8,6 @@ const ORDER_MAP = {
   oldest:   'oldest',
 };
 
-function getDailyCacheBust() {
-  const istNow = new Date(Date.now() + 330 * 60 * 1000);
-  return `${istNow.getUTCFullYear()}${String(istNow.getUTCMonth()+1).padStart(2,'0')}${String(istNow.getUTCDate()).padStart(2,'0')}`;
-}
 
 function normalise(v) {
   const thumbs   = v.thumbs || [];
@@ -38,10 +34,8 @@ function normalise(v) {
 export async function fetchEpornerVideos({ sort = 'latest', page = 0, query = '', tag = '' }) {
   const order      = ORDER_MAP[sort] || 'latest';
   const offset     = page * PER_PAGE;
-  const bust       = getDailyCacheBust();
   const searchTerm = tag || query.trim();
-
-  const url = `${BASE}/search/?query=${encodeURIComponent(searchTerm)}&per_page=${PER_PAGE}&from=${offset}&order=${order}&gay=0&format=json&thumbsize=big&_d=${bust}`;
+  const url = `${BASE}/search/?query=${encodeURIComponent(searchTerm)}&per_page=${PER_PAGE}&from=${offset}&order=${order}&gay=0&format=json&thumbsize=big`;
 
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Eporner API ${res.status}`);
