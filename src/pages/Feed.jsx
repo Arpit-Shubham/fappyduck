@@ -191,7 +191,7 @@ export default function Feed() {
       setLoading(false);
       feedLoadingRef.current = false;
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     seenFeedIds.current = new Set();
@@ -236,7 +236,7 @@ export default function Feed() {
       setSearchLoading(false);
       searchLoadingRef.current = false;
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     if (searchQuery) {
@@ -297,7 +297,7 @@ export default function Feed() {
 
     container.addEventListener('scroll', onScroll, { passive: true });
     return () => container.removeEventListener('scroll', onScroll);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line
 
   // Search reel scroll — attached when reelRef mounts
   useEffect(() => {
@@ -325,7 +325,7 @@ export default function Feed() {
 
     container.addEventListener('scroll', onScroll, { passive: true });
     return () => container.removeEventListener('scroll', onScroll);
-  }, [reelStartIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [reelStartIdx]); // eslint-disable-line
 
   // Grid scroll — simple scroll on gridWrap
   const gridWrapRef = useRef(null);
