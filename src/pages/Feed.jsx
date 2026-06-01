@@ -126,6 +126,51 @@ function EndMarker() {
   );
 }
 
+// ── Load More Button — self-contained with local loading state ───────────────
+// Uses local isLoading so it never blinks regardless of parent state changes
+function LoadMoreBtn({ label, onClick }) {
+  const [busy, setBusy] = useState(false);
+  const handle = async () => {
+    if (busy) return;
+    setBusy(true);
+    try { await onClick(); } catch (e) {}
+    // Reset after 3s max in case parent state doesn't update
+    setTimeout(() => setBusy(false), 3000);
+  };
+  return (
+    <button
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '14px 32px',
+        background: busy ? 'rgba(26,107,255,0.4)' : 'linear-gradient(135deg, #1a6bff, #0044cc)',
+        border: 'none', borderRadius: '30px', color: '#fff',
+        fontSize: '14px', fontWeight: 700, cursor: busy ? 'default' : 'pointer',
+        fontFamily: "'Syne',sans-serif",
+        boxShadow: busy ? 'none' : '0 4px 20px rgba(26,107,255,0.4)',
+        WebkitTapHighlightColor: 'transparent',
+        letterSpacing: '0.3px', transition: 'all 0.2s ease',
+        minWidth: '180px'
+      }}
+      onClick={handle}
+      disabled={busy}
+    >
+      {busy ? (
+        <>
+          <div style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: '8px' }} />
+          Loading…
+        </>
+      ) : (
+        <>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px' }}>
+            <path d="M12 5v14M5 12l7 7 7-7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          {label}
+        </>
+      )}
+    </button>
+  );
+}
+
 // ── Main Feed ─────────────────────────────────────────────────────────────────
 export default function Feed() {
   const { user }          = useAuth();
@@ -498,16 +543,10 @@ export default function Feed() {
           ))}
           {loading && <div style={s.loaderSlide}><Loader /></div>}
           {!loading && videos.length > 0 && hasMore && (
-            <div style={s.loadMoreSlide}>
-              <button style={s.loadMoreBtn} onClick={() => {
-                const next = page + 1; setPage(next); load(sort, next, false);
-              }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px' }}>
-                  <path d="M12 5v14M5 12l7 7 7-7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Load More Videos
-              </button>
-            </div>
+            <LoadMoreBtn label="Load More Videos" onClick={() => {
+              const next = pageRef.current + 1;
+              setPage(next); load(sortRef.current, next, false);
+            }} />
           )}
           {!hasMore && videos.length > 0 && !loading && <EndMarker />}
         </div>
@@ -528,14 +567,10 @@ export default function Feed() {
           {searchLoading && searchResults.length > 0 && <Loader />}
           {!searchLoading && searchResults.length > 0 && searchHasMore && (
             <div style={s.gridLoadMore}>
-              <button style={s.loadMoreBtn} onClick={() => {
-                const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
-              }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px' }}>
-                  <path d="M12 5v14M5 12l7 7 7-7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Load More Results
-              </button>
+              <LoadMoreBtn label="Load More Results" onClick={() => {
+                const next = searchPageRef.current + 1;
+                setSearchPage(next); loadSearch(searchQueryRef.current, next, false);
+              }} />
             </div>
           )}
           {!searchHasMore && searchResults.length > 0 && !searchLoading && <EndMarker />}
@@ -553,14 +588,10 @@ export default function Feed() {
           {searchLoading && <div style={s.loaderSlide}><Loader /></div>}
           {!searchLoading && searchResults.length > 0 && searchHasMore && (
             <div style={s.loadMoreSlide}>
-              <button style={s.loadMoreBtn} onClick={() => {
-                const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
-              }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px' }}>
-                  <path d="M12 5v14M5 12l7 7 7-7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                Load More Videos
-              </button>
+              <LoadMoreBtn label="Load More Videos" onClick={() => {
+                const next = searchPageRef.current + 1;
+                setSearchPage(next); loadSearch(searchQueryRef.current, next, false);
+              }} />
             </div>
           )}
           {!searchHasMore && searchResults.length > 0 && !searchLoading && <EndMarker />}
@@ -632,9 +663,10 @@ const s = {
   emptyText: { color: '#444', fontSize: '15px', fontFamily: "'Syne',sans-serif" },
 
   loadMoreSlide: {
-    width: '100%', minHeight: '120px', scrollSnapAlign: 'none',
+    width: '100%', minHeight: '100px',
+    scrollSnapAlign: 'start',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '20px 0'
+    padding: '20px 0', flexShrink: 0
   },
   gridLoadMore: {
     display: 'flex', justifyContent: 'center',
