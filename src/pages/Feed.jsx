@@ -126,50 +126,50 @@ function EndMarker() {
   );
 }
 
-// ── Load More Button — self-contained with local loading state ───────────────
-// Uses local isLoading so it never blinks regardless of parent state changes
-function LoadMoreBtn({ label, onClick }) {
-  const [busy, setBusy] = useState(false);
-  const handle = async () => {
-    if (busy) return;
-    setBusy(true);
-    try { await onClick(); } catch (e) {}
-    // Reset after 3s max in case parent state doesn't update
-    setTimeout(() => setBusy(false), 3000);
-  };
+// ── Circular Load More — shown as overlay on the last reel / bottom of grid ──
+function CircularLoadMore({ onClick, loading }) {
   return (
-    <button
-      style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '14px 32px',
-        background: busy ? 'rgba(26,107,255,0.4)' : 'linear-gradient(135deg, #1a6bff, #0044cc)',
-        border: 'none', borderRadius: '30px', color: '#fff',
-        fontSize: '14px', fontWeight: 700, cursor: busy ? 'default' : 'pointer',
-        fontFamily: "'Syne',sans-serif",
-        boxShadow: busy ? 'none' : '0 4px 20px rgba(26,107,255,0.4)',
-        WebkitTapHighlightColor: 'transparent',
-        letterSpacing: '0.3px', transition: 'all 0.2s ease',
-        minWidth: '180px'
-      }}
-      onClick={handle}
-      disabled={busy}
-    >
-      {busy ? (
-        <>
-          <div style={{ width: '16px', height: '16px', border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', borderRadius: '50%', animation: 'spin 0.7s linear infinite', marginRight: '8px' }} />
-          Loading…
-        </>
-      ) : (
-        <>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px' }}>
+    <div style={clm.wrap} onClick={loading ? undefined : onClick}>
+      <div style={{ ...clm.ring, animation: loading ? 'spin 1s linear infinite' : 'none' }}>
+        {loading ? null : (
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
             <path d="M12 5v14M5 12l7 7 7-7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          {label}
-        </>
-      )}
-    </button>
+        )}
+        {loading && (
+          <div style={clm.innerSpin} />
+        )}
+      </div>
+      <span style={clm.label}>{loading ? 'Loading…' : 'Load More'}</span>
+    </div>
   );
 }
+const clm = {
+  wrap: {
+    display: 'flex', flexDirection: 'column', alignItems: 'center',
+    gap: '10px', cursor: 'pointer', WebkitTapHighlightColor: 'transparent',
+    padding: '24px 0'
+  },
+  ring: {
+    width: '60px', height: '60px', borderRadius: '50%',
+    background: 'rgba(26,107,255,0.15)',
+    backdropFilter: 'blur(10px)',
+    border: '2px solid rgba(26,107,255,0.5)',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    boxShadow: '0 0 24px rgba(26,107,255,0.3)',
+    position: 'relative'
+  },
+  innerSpin: {
+    position: 'absolute', inset: '4px', borderRadius: '50%',
+    border: '2px solid transparent',
+    borderTop: '2px solid #fff',
+    animation: 'spin 0.8s linear infinite'
+  },
+  label: {
+    color: 'rgba(255,255,255,0.7)', fontSize: '12px', fontWeight: 700,
+    fontFamily: "'Syne',sans-serif", letterSpacing: '0.5px'
+  }
+};
 
 // ── Main Feed ─────────────────────────────────────────────────────────────────
 export default function Feed() {
@@ -227,8 +227,9 @@ export default function Feed() {
       } else {
         setVideos(prev => [...prev, ...fresh]);
       }
-      // hasMore = got a full page back (most reliable signal)
-      setHasMore(data.length === 10);
+      // hasMore: if we got items, assume more exist unless fewer than requested came back
+      if (data.length > 0) setHasMore(data.length === PER_PAGE);
+      // If 0 items returned, don't set hasMore false — could be rate limit, leave as is
     } catch (e) {
       console.error('Feed load error:', e);
     } finally {
@@ -273,7 +274,7 @@ export default function Feed() {
       } else {
         setSearchResults(prev => [...prev, ...fresh]);
       }
-      setSearchHasMore(data.length === 10);
+      if (data.length > 0) setSearchHasMore(data.length === PER_PAGE);
     } catch (e) {
       console.error('Search load error:', e);
     } finally {
@@ -542,11 +543,16 @@ export default function Feed() {
             </div>
           ))}
           {loading && <div style={s.loaderSlide}><Loader /></div>}
-          {!loading && videos.length > 0 && hasMore && (
-            <LoadMoreBtn label="Load More Videos" onClick={() => {
-              const next = pageRef.current + 1;
-              setPage(next); load(sortRef.current, next, false);
-            }} />
+          {videos.length > 0 && hasMore && (
+            <div style={s.loadMoreSlide}>
+              <CircularLoadMore
+                loading={loading}
+                onClick={() => {
+                  const next = pageRef.current + 1;
+                  setPage(next); load(sortRef.current, next, false);
+                }}
+              />
+            </div>
           )}
           {!hasMore && videos.length > 0 && !loading && <EndMarker />}
         </div>
@@ -565,12 +571,15 @@ export default function Feed() {
             {searchResults.map(v => <GridCard key={`g-${v.id}`} video={v} onPlay={handleGridPlay} />)}
           </div>
           {searchLoading && searchResults.length > 0 && <Loader />}
-          {!searchLoading && searchResults.length > 0 && searchHasMore && (
+          {searchResults.length > 0 && searchHasMore && (
             <div style={s.gridLoadMore}>
-              <LoadMoreBtn label="Load More Results" onClick={() => {
-                const next = searchPageRef.current + 1;
-                setSearchPage(next); loadSearch(searchQueryRef.current, next, false);
-              }} />
+              <CircularLoadMore
+                loading={searchLoading}
+                onClick={() => {
+                  const next = searchPageRef.current + 1;
+                  setSearchPage(next); loadSearch(searchQueryRef.current, next, false);
+                }}
+              />
             </div>
           )}
           {!searchHasMore && searchResults.length > 0 && !searchLoading && <EndMarker />}
@@ -586,12 +595,15 @@ export default function Feed() {
             </div>
           ))}
           {searchLoading && <div style={s.loaderSlide}><Loader /></div>}
-          {!searchLoading && searchResults.length > 0 && searchHasMore && (
+          {searchResults.length > 0 && searchHasMore && (
             <div style={s.loadMoreSlide}>
-              <LoadMoreBtn label="Load More Videos" onClick={() => {
-                const next = searchPageRef.current + 1;
-                setSearchPage(next); loadSearch(searchQueryRef.current, next, false);
-              }} />
+              <CircularLoadMore
+                loading={searchLoading}
+                onClick={() => {
+                  const next = searchPageRef.current + 1;
+                  setSearchPage(next); loadSearch(searchQueryRef.current, next, false);
+                }}
+              />
             </div>
           )}
           {!searchHasMore && searchResults.length > 0 && !searchLoading && <EndMarker />}
@@ -663,15 +675,13 @@ const s = {
   emptyText: { color: '#444', fontSize: '15px', fontFamily: "'Syne',sans-serif" },
 
   loadMoreSlide: {
-    width: '100%', minHeight: '100px',
+    width: '100%',
+    height: 'calc(100vh - 118px)',
     scrollSnapAlign: 'start',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    padding: '20px 0', flexShrink: 0
+    flexShrink: 0, background: '#050508'
   },
-  gridLoadMore: {
-    display: 'flex', justifyContent: 'center',
-    padding: '24px 0 8px'
-  },
+  gridLoadMore: { display: 'flex', justifyContent: 'center', padding: '24px 0 32px' },
   loadMoreBtn: {
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     padding: '14px 28px',
