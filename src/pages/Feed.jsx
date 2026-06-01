@@ -160,7 +160,6 @@ export default function Feed() {
   const feedLoadingRef   = useRef(false); // separate from search to prevent blocking
   const searchLoadingRef = useRef(false);
   const searchInputRef  = useRef(null);
-  const gridSentinelRef = useRef(null);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const updateUrl = useCallback((id) => {
@@ -168,29 +167,31 @@ export default function Feed() {
     window.history.replaceState(null, '', id ? `/v/${id}` : '/');
   }, []);
 
-  // ── Load feed ───────────────────────────────────────────────────────────────
+  // ── Load feed (try/finally guarantees loadingRef always resets) ─────────────
   const load = useCallback(async (sortBy, pageNum, reset = false) => {
     if (feedLoadingRef.current) return;
     feedLoadingRef.current = true;
     setLoading(true);
     try {
-      const { videos: data, hasMore: more } = await fetchEpornerVideos({ sort: sortBy, page: pageNum });
+      const { videos: data } = await fetchEpornerVideos({ sort: sortBy, page: pageNum });
       const fresh = data.filter(v => !seenFeedIds.current.has(v.id));
       fresh.forEach(v => seenFeedIds.current.add(v.id));
-      if (reset) { seenFeedIds.current = new Set(fresh.map(v => v.id)); setVideos(fresh); }
-      else setVideos(prev => [...prev, ...fresh]);
-      // If all 10 were dupes try next page automatically
-      if (fresh.length === 0 && more) {
-        feedLoadingRef.current = false;
-        setLoading(false);
-        load(sortBy, pageNum + 1, false);
-        return;
+      if (reset) {
+        seenFeedIds.current = new Set(fresh.map(v => v.id));
+        setVideos(fresh);
+      } else {
+        setVideos(prev => [...prev, ...fresh]);
       }
-      setHasMore(more);
-    } catch(e) { console.error(e); }
-    setLoading(false);
-    feedLoadingRef.current = false;
-  }, []); // eslint-disable-line
+      // hasMore = got a full page back (most reliable signal)
+      setHasMore(data.length === 10);
+    } catch (e) {
+      console.error('Feed load error:', e);
+    } finally {
+      // ALWAYS release the lock — no matter what happened above
+      setLoading(false);
+      feedLoadingRef.current = false;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     seenFeedIds.current = new Set();
@@ -212,29 +213,30 @@ export default function Feed() {
     }
   }, [paramId, videos.length]); // eslint-disable-line
 
-  // ── Load search / tag results ───────────────────────────────────────────────
+  // ── Load search / tag results (try/finally) ────────────────────────────────
   const loadSearch = useCallback(async (query, pageNum, reset = false) => {
     if (!query.trim() || searchLoadingRef.current) return;
     searchLoadingRef.current = true;
     setSearchLoading(true);
     try {
-      const { videos: data, hasMore: more } = await fetchEpornerVideos({ sort: 'top-rated', page: pageNum, query });
+      const { videos: data } = await fetchEpornerVideos({ sort: 'top-rated', page: pageNum, query });
       const fresh = data.filter(v => !seenSearchIds.current.has(v.id));
       fresh.forEach(v => seenSearchIds.current.add(v.id));
-      if (reset) { seenSearchIds.current = new Set(fresh.map(v => v.id)); setSearchResults(fresh); }
-      else setSearchResults(prev => [...prev, ...fresh]);
-      // Auto-skip dupes
-      if (fresh.length === 0 && more) {
-        searchLoadingRef.current = false;
-        setSearchLoading(false);
-        loadSearch(query, pageNum + 1, false);
-        return;
+      if (reset) {
+        seenSearchIds.current = new Set(fresh.map(v => v.id));
+        setSearchResults(fresh);
+      } else {
+        setSearchResults(prev => [...prev, ...fresh]);
       }
-      setSearchHasMore(more);
-    } catch(e) { console.error(e); }
-    setSearchLoading(false);
-    searchLoadingRef.current = false;
-  }, []); // eslint-disable-line
+      setSearchHasMore(data.length === 10);
+    } catch (e) {
+      console.error('Search load error:', e);
+    } finally {
+      // ALWAYS release the lock
+      setSearchLoading(false);
+      searchLoadingRef.current = false;
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (searchQuery) {
@@ -244,60 +246,106 @@ export default function Feed() {
     }
   }, [searchQuery]); // eslint-disable-line
 
-  // ── Feed IntersectionObserver ───────────────────────────────────────────────
+  // ── Feed scroll handler (replaces IntersectionObserver — more reliable) ─────
+  // Uses stable refs so handler never needs to be re-attached
+  const videosRef       = useRef(videos);
+  const hasMoreRef      = useRef(hasMore);
+  const sortRef         = useRef(sort);
+  const pageRef         = useRef(page);
+  const searchQueryRef  = useRef(searchQuery);
+  const searchResultsRef = useRef(searchResults);
+  const searchHasMoreRef = useRef(searchHasMore);
+  const searchPageRef   = useRef(searchPage);
+  const reelStartRef    = useRef(reelStartIdx);
+
+  // Keep refs in sync with state (no re-subscription needed)
+  useEffect(() => { videosRef.current = videos; }, [videos]);
+  useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
+  useEffect(() => { sortRef.current = sort; }, [sort]);
+  useEffect(() => { pageRef.current = page; }, [page]);
+  useEffect(() => { searchQueryRef.current = searchQuery; }, [searchQuery]);
+  useEffect(() => { searchResultsRef.current = searchResults; }, [searchResults]);
+  useEffect(() => { searchHasMoreRef.current = searchHasMore; }, [searchHasMore]);
+  useEffect(() => { searchPageRef.current = searchPage; }, [searchPage]);
+  useEffect(() => { reelStartRef.current = reelStartIdx; }, [reelStartIdx]);
+
+  // Main feed scroll — attached once, reads state via refs
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || searchQuery) return;
-    const items = container.querySelectorAll('.video-slide');
-    if (!items.length) return;
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (!entry.isIntersecting) return;
-        const idx = parseInt(entry.target.dataset.idx);
-        setActiveIdx(idx);
-        updateUrl(videos[idx]?.id);
-        if (idx >= videos.length - 5 && hasMore && !feedLoadingRef.current) {
-          const next = page + 1; setPage(next); load(sort, next, false);
-        }
-      });
-    }, { threshold: 0.7, root: container });
-    items.forEach(el => obs.observe(el));
-    return () => obs.disconnect();
-  }, [videos.length, sort, page, hasMore, load, searchQuery, updateUrl, videos]);
+    if (!container) return;
 
-  // ── Search reel IntersectionObserver ────────────────────────────────────────
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const slideH = clientHeight;
+      if (slideH === 0) return;
+
+      // Which slide is most visible
+      const idx = Math.round(scrollTop / slideH);
+      if (idx !== activeIdx) {
+        setActiveIdx(idx);
+        updateUrl(videosRef.current[idx]?.id);
+      }
+
+      // Load next page when within 3 slides of end
+      const nearEnd = scrollTop + clientHeight >= scrollHeight - slideH * 3;
+      if (nearEnd && hasMoreRef.current && !feedLoadingRef.current) {
+        const next = pageRef.current + 1;
+        setPage(next);
+        load(sortRef.current, next, false);
+      }
+    };
+
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => container.removeEventListener('scroll', onScroll);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps react-hooks/exhaustive-deps
+
+  // Search reel scroll — attached when reelRef mounts
   useEffect(() => {
     const container = reelRef.current;
     if (!container || reelStartIdx === null) return;
-    const items = container.querySelectorAll('.search-reel-slide');
-    if (!items.length) return;
-    const obs = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        if (!entry.isIntersecting) return;
-        const idx = parseInt(entry.target.dataset.idx);
-        setActiveIdx(idx);
-        updateUrl(searchResults[idx]?.id);
-        if (idx >= searchResults.length - 5 && searchHasMore && !searchLoadingRef.current) {
-          const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
-        }
-      });
-    }, { threshold: 0.7, root: container });
-    items.forEach(el => obs.observe(el));
-    return () => obs.disconnect();
-  }, [searchResults.length, reelStartIdx, searchPage, searchHasMore, searchQuery, loadSearch, updateUrl, searchResults]);
 
-  // ── Grid sentinel ───────────────────────────────────────────────────────────
-  useEffect(() => {
-    const sentinel = gridSentinelRef.current;
-    if (!sentinel || !searchQuery || reelStartIdx !== null) return;
-    const obs = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && searchHasMore && !searchLoading && !searchLoadingRef.current) {
-        const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const slideH = clientHeight;
+      if (slideH === 0) return;
+
+      const idx = Math.round(scrollTop / slideH);
+      if (idx !== activeIdx) {
+        setActiveIdx(idx);
+        updateUrl(searchResultsRef.current[idx]?.id);
       }
-    }, { threshold: 0.1 });
-    obs.observe(sentinel);
-    return () => obs.disconnect();
-  }, [searchQuery, searchPage, searchHasMore, searchLoading, reelStartIdx, loadSearch]);
+
+      const nearEnd = scrollTop + clientHeight >= scrollHeight - slideH * 3;
+      if (nearEnd && searchHasMoreRef.current && !searchLoadingRef.current) {
+        const next = searchPageRef.current + 1;
+        setSearchPage(next);
+        loadSearch(searchQueryRef.current, next, false);
+      }
+    };
+
+    container.addEventListener('scroll', onScroll, { passive: true });
+    return () => container.removeEventListener('scroll', onScroll);
+  }, [reelStartIdx]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Grid scroll — simple scroll on gridWrap
+  const gridWrapRef = useRef(null);
+  useEffect(() => {
+    const el = gridWrapRef.current;
+    if (!el || !searchQuery || reelStartIdx !== null) return;
+
+    const onScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = el;
+      const nearEnd = scrollTop + clientHeight >= scrollHeight - 300;
+      if (nearEnd && searchHasMoreRef.current && !searchLoadingRef.current) {
+        const next = searchPageRef.current + 1;
+        setSearchPage(next);
+        loadSearch(searchQueryRef.current, next, false);
+      }
+    };
+
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [searchQuery, reelStartIdx]); // eslint-disable-line
 
   // Focus search input
   useEffect(() => {
@@ -449,13 +497,25 @@ export default function Feed() {
             </div>
           ))}
           {loading && <div style={s.loaderSlide}><Loader /></div>}
+          {!loading && videos.length > 0 && hasMore && (
+            <div style={s.loadMoreSlide}>
+              <button style={s.loadMoreBtn} onClick={() => {
+                const next = page + 1; setPage(next); load(sort, next, false);
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px' }}>
+                  <path d="M12 5v14M5 12l7 7 7-7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Load More Videos
+              </button>
+            </div>
+          )}
           {!hasMore && videos.length > 0 && !loading && <EndMarker />}
         </div>
       )}
 
       {/* ── Search grid ───────────────────────────────────────────────────── */}
       {showGrid && (
-        <div style={s.gridWrap}>
+        <div ref={gridWrapRef} style={s.gridWrap}>
           <div style={s.gridHeader}>
             <p style={s.gridSub}>RESULTS FOR</p>
             <p style={s.gridQuery}>{searchLabel}</p>
@@ -466,8 +526,19 @@ export default function Feed() {
             {searchResults.map(v => <GridCard key={`g-${v.id}`} video={v} onPlay={handleGridPlay} />)}
           </div>
           {searchLoading && searchResults.length > 0 && <Loader />}
+          {!searchLoading && searchResults.length > 0 && searchHasMore && (
+            <div style={s.gridLoadMore}>
+              <button style={s.loadMoreBtn} onClick={() => {
+                const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px' }}>
+                  <path d="M12 5v14M5 12l7 7 7-7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Load More Results
+              </button>
+            </div>
+          )}
           {!searchHasMore && searchResults.length > 0 && !searchLoading && <EndMarker />}
-          <div ref={gridSentinelRef} style={{ height: '10px' }} />
         </div>
       )}
 
@@ -480,6 +551,18 @@ export default function Feed() {
             </div>
           ))}
           {searchLoading && <div style={s.loaderSlide}><Loader /></div>}
+          {!searchLoading && searchResults.length > 0 && searchHasMore && (
+            <div style={s.loadMoreSlide}>
+              <button style={s.loadMoreBtn} onClick={() => {
+                const next = searchPage + 1; setSearchPage(next); loadSearch(searchQuery, next, false);
+              }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ marginRight: '8px' }}>
+                  <path d="M12 5v14M5 12l7 7 7-7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Load More Videos
+              </button>
+            </div>
+          )}
           {!searchHasMore && searchResults.length > 0 && !searchLoading && <EndMarker />}
         </div>
       )}
@@ -548,5 +631,25 @@ const s = {
   emptyWrap: { height: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' },
   emptyText: { color: '#444', fontSize: '15px', fontFamily: "'Syne',sans-serif" },
 
+  loadMoreSlide: {
+    width: '100%', minHeight: '120px', scrollSnapAlign: 'none',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '20px 0'
+  },
+  gridLoadMore: {
+    display: 'flex', justifyContent: 'center',
+    padding: '24px 0 8px'
+  },
+  loadMoreBtn: {
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    padding: '14px 28px',
+    background: 'linear-gradient(135deg, #1a6bff, #0044cc)',
+    border: 'none', borderRadius: '30px', color: '#fff',
+    fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+    fontFamily: "'Syne',sans-serif",
+    boxShadow: '0 4px 20px rgba(26,107,255,0.4)',
+    WebkitTapHighlightColor: 'transparent',
+    letterSpacing: '0.3px'
+  },
   bannerAd: { position: 'fixed', bottom: '68px', left: 0, right: 0, height: '50px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid #111', borderBottom: '1px solid #111', zIndex: 40, overflow: 'hidden' }
 };
