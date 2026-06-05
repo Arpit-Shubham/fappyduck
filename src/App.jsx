@@ -5,6 +5,8 @@ import { AuthContext, useAuthProvider } from './hooks/useAuth';
 import AgeGate from './components/AgeGate';
 import BottomNav from './components/BottomNav';
 import Feed from './pages/Feed';
+import Videos from './pages/Videos';
+import VideoWatch from './pages/VideoWatch';
 import History from './pages/History';
 import Liked from './pages/Liked';
 import Account from './pages/Account';
@@ -33,12 +35,16 @@ export default function App() {
         <div style={{ fontFamily: "'Syne', sans-serif", background: '#050508', minHeight: '100vh' }}>
           <Routes>
             {/* Main feed — optional video ID param for direct links */}
-            <Route path="/"       element={<Feed />} />
-            <Route path="/v/:id"  element={<Feed />} />
+            <Route path="/"       element={<Navigate to="/reels" />} />
+            <Route path="/reels"  element={<Feed />} />
+            <Route path="/reels/:id" element={<Feed />} />
+            <Route path="/v/:id"  element={<Navigate to="/reels" replace />} />
+            <Route path="/videos" element={<Videos />} />
+            <Route path="/videos/:id" element={<VideoWatch />} />
             <Route path="/history" element={<History />} />
             <Route path="/liked"   element={<Liked />} />
             <Route path="/account" element={<Account />} />
-            <Route path="*"        element={<Navigate to="/" />} />
+            <Route path="*"        element={<Navigate to="/reels" />} />
           </Routes>
           <BottomNav />
         </div>
