@@ -2,28 +2,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import VideoPlayer from '../components/VideoPlayer';
-import { fetchEpornerVideos } from '../lib/eporner';
+import { fetchEpornerBatch, PER_PAGE } from '../lib/eporner';
 import { useAuth } from '../hooks/useAuth';
 
 // ── Adsterra Banner ───────────────────────────────────────────────────────────
-function AdsterraBanner() {
-  const ref = React.useRef(null);
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      const el = ref.current;
-      if (!el || el.dataset.loaded) return;
-      el.dataset.loaded = 'true';
-      window.atOptions = { key: 'c5831a750d0ec46ab4e86855aa45bdc1', format: 'iframe', height: 50, width: 320, params: {} };
-      const s = document.createElement('script');
-      s.type = 'text/javascript'; s.async = true;
-      s.src = 'https://scarleterror.com/c5831a750d0ec46ab4e86855aa45bdc1/invoke.js';
-      el.appendChild(s);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, []);
-  return <div ref={ref} style={{ width: '320px', height: '50px', overflow: 'hidden' }} />;
-}
-
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
 const ChevronDown = () => (
   <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
@@ -209,7 +191,7 @@ export default function Feed() {
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const updateUrl = useCallback((id) => {
     // Silently update URL without re-render or scroll reset
-    window.history.replaceState(null, '', id ? `/v/${id}` : '/');
+    window.history.replaceState(null, '', id ? `/reels/${id}` : '/reels');
   }, []);
 
   // ── Load feed (try/finally guarantees loadingRef always resets) ─────────────
@@ -218,7 +200,7 @@ export default function Feed() {
     feedLoadingRef.current = true;
     setLoading(true);
     try {
-      const { videos: data } = await fetchEpornerVideos({ sort: sortBy, page: pageNum });
+      const { videos: data, nextPage } = await fetchEpornerBatch({ sort: sortBy, page: pageNum, pages: 3 });
       const fresh = data.filter(v => !seenFeedIds.current.has(v.id));
       fresh.forEach(v => seenFeedIds.current.add(v.id));
       if (reset) {
@@ -228,7 +210,10 @@ export default function Feed() {
         setVideos(prev => [...prev, ...fresh]);
       }
       // hasMore: if we got items, assume more exist unless fewer than requested came back
-      if (data.length > 0) setHasMore(data.length === PER_PAGE);
+      if (data.length > 0) {
+        setHasMore(data.length >= PER_PAGE);
+        setPage(nextPage - 1);
+      }
       // If 0 items returned, don't set hasMore false — could be rate limit, leave as is
     } catch (e) {
       console.error('Feed load error:', e);
@@ -265,7 +250,7 @@ export default function Feed() {
     searchLoadingRef.current = true;
     setSearchLoading(true);
     try {
-      const { videos: data } = await fetchEpornerVideos({ sort: 'top-rated', page: pageNum, query });
+      const { videos: data, nextPage } = await fetchEpornerBatch({ sort: 'top-rated', page: pageNum, query, pages: 3 });
       const fresh = data.filter(v => !seenSearchIds.current.has(v.id));
       fresh.forEach(v => seenSearchIds.current.add(v.id));
       if (reset) {
@@ -274,7 +259,10 @@ export default function Feed() {
       } else {
         setSearchResults(prev => [...prev, ...fresh]);
       }
-      if (data.length > 0) setSearchHasMore(data.length === PER_PAGE);
+      if (data.length > 0) {
+        setSearchHasMore(data.length >= PER_PAGE);
+        setSearchPage(nextPage - 1);
+      }
     } catch (e) {
       console.error('Search load error:', e);
     } finally {
@@ -611,7 +599,6 @@ export default function Feed() {
       )}
 
       {/* ── Banner ad ─────────────────────────────────────────────────────── */}
-      <div style={s.bannerAd}><AdsterraBanner /></div>
     </div>
   );
 }
@@ -660,11 +647,11 @@ const s = {
     WebkitTapHighlightColor: 'transparent', transition: 'background 0.15s, border-color 0.15s'
   },
 
-  feed: { width: '100%', height: 'calc(100% - 118px)', overflowY: 'scroll', scrollSnapType: 'y mandatory', WebkitOverflowScrolling: 'touch' },
-  slide: { width: '100%', height: 'calc(100vh - 118px)', scrollSnapAlign: 'start', flexShrink: 0, position: 'relative' },
+  feed: { width: '100%', height: 'calc(100% - 68px)', overflowY: 'scroll', scrollSnapType: 'y mandatory', WebkitOverflowScrolling: 'touch' },
+  slide: { width: '100%', height: 'calc(100vh - 68px)', scrollSnapAlign: 'start', flexShrink: 0, position: 'relative' },
   loaderSlide: { width: '100%', height: '100px', scrollSnapAlign: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' },
 
-  gridWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: '118px', overflowY: 'auto', paddingTop: '64px', paddingBottom: '16px', WebkitOverflowScrolling: 'touch' },
+  gridWrap: { position: 'absolute', top: 0, left: 0, right: 0, bottom: '68px', overflowY: 'auto', paddingTop: '64px', paddingBottom: '16px', WebkitOverflowScrolling: 'touch' },
   gridHeader: { padding: '0 16px 16px' },
   gridSub: { color: '#555', fontSize: '10px', fontWeight: 800, letterSpacing: '1.5px', margin: '0 0 2px', fontFamily: "'Syne',sans-serif" },
   gridQuery: { color: '#fff', fontSize: '20px', fontWeight: 800, margin: '0 0 4px', fontFamily: "'Syne',sans-serif" },
@@ -676,7 +663,7 @@ const s = {
 
   loadMoreSlide: {
     width: '100%',
-    height: 'calc(100vh - 118px)',
+    height: 'calc(100vh - 68px)',
     scrollSnapAlign: 'start',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     flexShrink: 0, background: '#050508'
@@ -693,5 +680,5 @@ const s = {
     WebkitTapHighlightColor: 'transparent',
     letterSpacing: '0.3px'
   },
-  bannerAd: { position: 'fixed', bottom: '68px', left: 0, right: 0, height: '50px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid #111', borderBottom: '1px solid #111', zIndex: 40, overflow: 'hidden' }
+  bannerAd: { display: 'none' }
 };
