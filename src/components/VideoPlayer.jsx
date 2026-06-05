@@ -1,5 +1,6 @@
 // src/components/VideoPlayer.jsx
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toggleLike, isLiked, addToHistory, fetchComments, postComment } from '../lib/supabase';
 
 // ── SVG Icons ─────────────────────────────────────────────────────────────────
@@ -77,6 +78,7 @@ function AdsterraPreroll() {
 
 // ── Main VideoPlayer ──────────────────────────────────────────────────────────
 export default function VideoPlayer({ video, userId, isActive, onTagSearch, feedRef }) {
+  const navigate = useNavigate();
   const containerRef = useRef(null);
 
   const [liked, setLiked]               = useState(false);
@@ -112,7 +114,7 @@ export default function VideoPlayer({ video, userId, isActive, onTagSearch, feed
         engageTimer.current = setTimeout(() => {
           if (!adTriggered.current) {
             adTriggered.current = true;
-            setShowAd(true);
+            setShowAd(false);
           }
         }, 3000);
       }
@@ -182,7 +184,7 @@ export default function VideoPlayer({ video, userId, isActive, onTagSearch, feed
   };
 
   const handleShare = async () => {
-    const url = `${window.location.origin}/v/${video.id}`;
+    const url = `${window.location.origin}/reels/${video.id}`;
     if (navigator.share) await navigator.share({ title: video.title, url });
     else { await navigator.clipboard.writeText(url); alert('Link copied!'); }
   };
@@ -249,9 +251,14 @@ export default function VideoPlayer({ video, userId, isActive, onTagSearch, feed
           <DuckLogo />
           <span style={st.brandText}>FappyDuck</span>
         </div>
-        <button onClick={handleFullscreen} style={st.topBtn} title="Fullscreen">
-          <FullscreenIcon active={isFullscreen} />
-        </button>
+        <div style={st.topActions}>
+          <button onClick={() => navigate(`/videos/${video.id}`)} style={st.watchBtn} title="Classic video view">
+            Watch
+          </button>
+          <button onClick={handleFullscreen} style={st.topBtn} title="Fullscreen">
+            <FullscreenIcon active={isFullscreen} />
+          </button>
+        </div>
       </div>
 
       {/* ── Bottom info ──────────────────────────────────────────────────── */}
@@ -362,6 +369,8 @@ const st = {
   topBar:     { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '52px 14px 12px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 100%)' },
   brandRow:   { display: 'flex', alignItems: 'center', gap: '7px' },
   brandText:  { color: '#fff', fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '15px', textShadow: '0 0 20px rgba(26,107,255,0.5)' },
+  topActions: { display: 'flex', alignItems: 'center', gap: '8px' },
+  watchBtn:   { ...glassBtn, color: '#fff', fontSize: '12px', fontWeight: 800, fontFamily: "'Syne',sans-serif", padding: '7px 11px' },
   topBtn:     { ...glassBtn },
   bottomArea: { position: 'absolute', bottom: '80px', left: 0, right: '72px', zIndex: 3, padding: '0 14px 10px', background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)' },
   title:      { color: '#fff', fontSize: '14px', fontWeight: 700, margin: '0 0 3px', lineHeight: 1.35, textShadow: '0 1px 6px rgba(0,0,0,0.9)' },

@@ -4,10 +4,17 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 // SVG icons - clean, standard, Instagram/YouTube style
 const Icons = {
+  reels: (active) => (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <rect x="5" y="3" width="14" height="18" rx="3" fill={active ? '#1a6bff' : 'none'} stroke={active ? '#1a6bff' : '#aaa'} strokeWidth="1.8"/>
+      <path d="M9 3l3 5M15 3l3 5M5 8h14" stroke={active ? '#fff' : '#aaa'} strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M10 12.5v5l4-2.5-4-2.5z" fill={active ? '#fff' : '#aaa'}/>
+    </svg>
+  ),
   videos: (active) => (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-      <rect x="2" y="4" width="13" height="16" rx="2" fill={active ? '#1a6bff' : 'none'} stroke={active ? '#1a6bff' : '#aaa'} strokeWidth="1.8"/>
-      <path d="M15 9l5-3v12l-5-3V9z" fill={active ? '#1a6bff' : 'none'} stroke={active ? '#1a6bff' : '#aaa'} strokeWidth="1.8" strokeLinejoin="round"/>
+      <rect x="3" y="5" width="18" height="14" rx="2" fill={active ? '#1a6bff' : 'none'} stroke={active ? '#1a6bff' : '#aaa'} strokeWidth="1.8"/>
+      <path d="M10 9l5 3-5 3V9z" fill={active ? '#fff' : '#aaa'}/>
     </svg>
   ),
   history: (active) => (
@@ -32,7 +39,8 @@ const Icons = {
 };
 
 const tabs = [
-  { path: '/',        key: 'videos',   label: 'Videos'  },
+  { path: '/reels',   key: 'reels',    label: 'Reels'   },
+  { path: '/videos',  key: 'videos',   label: 'Videos'  },
   { path: '/history', key: 'history',  label: 'History' },
   { path: '/liked',   key: 'liked',    label: 'Liked'   },
   { path: '/account', key: 'account',  label: 'Account' },
@@ -73,7 +81,7 @@ export default function BottomNav() {
         <div style={styles.topLine} />
         <div style={styles.inner}>
           {tabs.map(tab => {
-            const active = pathname === tab.path;
+            const active = pathname === tab.path || pathname.startsWith(`${tab.path}/`) || (tab.path === '/reels' && pathname === '/');
             return (
               <button key={tab.path} className={`bnav-tab${active ? ' active' : ''}`}
                 onClick={() => navigate(tab.path)}>

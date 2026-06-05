@@ -11,7 +11,7 @@ export default function VideoGrid({ title, videos, loading }) {
       {!loading && videos.length === 0 && <p style={styles.empty}>Nothing here yet.</p>}
       <div style={styles.grid}>
         {videos.map(v => (
-          <div key={v.id} style={styles.card} onClick={() => navigate(`/v/${v.id}`)}>
+          <div key={v.id} style={styles.card} onClick={() => navigate(`/videos/${v.id}`)}>
             <div style={styles.thumb}>
               {v.thumbnail_url
                 ? <img src={v.thumbnail_url} alt={v.title} style={styles.thumbImg} loading="lazy" />
