@@ -1,9 +1,10 @@
 // src/lib/eporner.js
 const BASE     = 'https://www.eporner.com/api/v2/video';
-const PER_PAGE = 10;
+export const PER_PAGE = 10;
 
 const ORDER_MAP = {
   trending: 'top-weekly',
+  'top-rated': 'top-rated',
   latest:   'latest',
   oldest:   'oldest',
 };
@@ -50,4 +51,46 @@ export async function fetchEpornerVideos({ sort = 'latest', page = 0, query = ''
   const hasMore = videos.length === PER_PAGE;
 
   return { videos, hasMore, total };
+}
+
+export async function fetchEpornerBatch({ sort = 'latest', page = 0, query = '', tag = '', pages = 3 }) {
+  const requests = Array.from({ length: pages }, (_, i) =>
+    fetchEpornerVideos({ sort, page: page + i, query, tag }).catch(() => ({
+      videos: [],
+      hasMore: true,
+      total: 0
+    }))
+  );
+  const settled = await Promise.all(requests);
+  const seen = new Set();
+  const videos = settled
+    .flatMap(r => r.videos || [])
+    .filter(v => {
+      if (!v?.id || seen.has(v.id)) return false;
+      seen.add(v.id);
+      return true;
+    });
+
+  return {
+    videos,
+    hasMore: settled.some(r => r.hasMore) || videos.length > 0,
+    total: Math.max(...settled.map(r => r.total || 0), 0),
+    nextPage: page + pages
+  };
+}
+
+export async function fetchEpornerVideo(id) {
+  const url = `${BASE}/id/?id=${encodeURIComponent(id)}&format=json&thumbsize=big`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Eporner API ${res.status}`);
+  const json = await res.json();
+  const raw = Array.isArray(json.videos) ? json.videos[0] : json.video || json;
+  if (!raw?.id) throw new Error('Video not found');
+  return normalise(raw);
+}
+
+export async function fetchSimilarVideos(video, page = 0) {
+  const tag = Array.isArray(video?.tags) && video.tags.length ? video.tags[0] : '';
+  const query = tag || video?.title || '';
+  return fetchEpornerBatch({ sort: 'trending', page, query, pages: 2 });
 }
