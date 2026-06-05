@@ -246,7 +246,7 @@ export default function VideoPlayer({ video, userId, isActive, onTagSearch, feed
       )}
 
       {/* ── Top bar ──────────────────────────────────────────────────────── */}
-      <div style={st.topBar}>
+      <div style={{ ...st.topBar, ...(isFullscreen ? st.hiddenInFullscreen : {}) }}>
         <div style={st.brandRow}>
           <DuckLogo />
           <span style={st.brandText}>FappyDuck</span>
@@ -262,13 +262,13 @@ export default function VideoPlayer({ video, userId, isActive, onTagSearch, feed
       </div>
 
       {/* ── Bottom info ──────────────────────────────────────────────────── */}
-      <div style={st.bottomArea}>
+      <div style={{ ...st.bottomArea, ...(isFullscreen ? st.hiddenInFullscreen : {}) }}>
         <p style={st.title}>{video.title}</p>
         <p style={st.date}>{formatDate(video.created_at)}</p>
       </div>
 
       {/* ── Right actions ─────────────────────────────────────────────────── */}
-      <div style={st.actions}>
+      <div style={{ ...st.actions, ...(isFullscreen ? st.hiddenInFullscreen : {}) }}>
         <Btn icon={<HeartIcon filled={liked} />}  label={formatCount(likeCount)} onClick={handleLike}              active={liked}  color="#ff3b6b" />
         <Btn icon={<CommentIcon />}               label="Comment"                onClick={handleComments}           color="#1a6bff" />
         <Btn icon={<ShareIcon />}                 label="Share"                  onClick={handleShare}              color="#1a6bff" />
@@ -360,25 +360,26 @@ const glassBtn = {
 const st = {
   container:  { position: 'relative', width: '100%', height: '100%', background: '#000', overflow: 'hidden' },
   iframe:     { width: '100%', height: '100%', border: 'none', display: 'block' },
+  hiddenInFullscreen: { display: 'none' },
   thumbWrap:  { position: 'absolute', inset: 0, zIndex: 2 },
   thumbImg:   { width: '100%', height: '100%', objectFit: 'cover' },
   adOverlay:  { position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.93)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
   adBox:      { width: '90%', maxWidth: '360px', background: '#0a1020', border: '1px solid rgba(26,107,255,0.25)', borderRadius: '16px', padding: '22px 20px', textAlign: 'center' },
   adLabel:    { color: '#1a6bff', fontSize: '10px', fontWeight: 800, letterSpacing: '2px', margin: '0 0 10px', fontFamily: "'Syne',sans-serif" },
   adTimer:    { marginTop: '18px', color: '#999', fontSize: '13px', background: 'rgba(26,107,255,0.12)', border: '1px solid rgba(26,107,255,0.25)', padding: '6px 18px', borderRadius: '20px', fontFamily: "'Syne',sans-serif" },
-  topBar:     { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '52px 14px 12px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 100%)' },
+  topBar:     { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 'max(18px, env(safe-area-inset-top)) 14px 12px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.65) 0%, transparent 100%)' },
   brandRow:   { display: 'flex', alignItems: 'center', gap: '7px' },
   brandText:  { color: '#fff', fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: '15px', textShadow: '0 0 20px rgba(26,107,255,0.5)' },
   topActions: { display: 'flex', alignItems: 'center', gap: '8px' },
   watchBtn:   { ...glassBtn, color: '#fff', fontSize: '12px', fontWeight: 800, fontFamily: "'Syne',sans-serif", padding: '7px 11px' },
   topBtn:     { ...glassBtn },
-  bottomArea: { position: 'absolute', bottom: '80px', left: 0, right: '72px', zIndex: 3, padding: '0 14px 10px', background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)' },
+  bottomArea: { position: 'absolute', bottom: '18px', left: 0, right: '72px', zIndex: 3, padding: '0 14px 10px', background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%)' },
   title:      { color: '#fff', fontSize: '14px', fontWeight: 700, margin: '0 0 3px', lineHeight: 1.35, textShadow: '0 1px 6px rgba(0,0,0,0.9)' },
   date:       { color: 'rgba(255,255,255,0.45)', fontSize: '11px', margin: 0 },
-  actions:    { position: 'absolute', right: '10px', bottom: '120px', display: 'flex', flexDirection: 'column', gap: '14px', zIndex: 3, alignItems: 'center' },
+  actions:    { position: 'absolute', right: '10px', bottom: '58px', display: 'flex', flexDirection: 'column', gap: '10px', zIndex: 3, alignItems: 'center' },
   actionBtn:  { background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px', padding: 0, WebkitTapHighlightColor: 'transparent' },
-  actionCircle: { width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(255,255,255,0.09)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'box-shadow 0.2s' },
-  actionLabel:  { fontSize: '11px', fontWeight: 700, textShadow: '0 1px 4px rgba(0,0,0,0.9)', fontFamily: "'Syne',sans-serif" },
+  actionCircle: { width: '44px', height: '44px', borderRadius: '50%', background: 'rgba(255,255,255,0.09)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'box-shadow 0.2s' },
+  actionLabel:  { fontSize: '10px', fontWeight: 700, textShadow: '0 1px 4px rgba(0,0,0,0.9)', fontFamily: "'Syne',sans-serif", maxWidth: '58px', overflow: 'hidden', textOverflow: 'ellipsis' },
   sheetBackdrop: { position: 'absolute', inset: 0, zIndex: 20, background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'flex-end' },
   sheetCard:  { width: '100%', background: 'rgba(7,11,22,0.97)', backdropFilter: 'blur(24px)', borderRadius: '22px 22px 0 0', border: '1px solid rgba(26,107,255,0.14)', borderBottom: 'none', display: 'flex', flexDirection: 'column', paddingBottom: '20px' },
   sheetHandle: { width: '38px', height: '4px', background: 'rgba(26,107,255,0.38)', borderRadius: '2px', margin: '14px auto 0' },
