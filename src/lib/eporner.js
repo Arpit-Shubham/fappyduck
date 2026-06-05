@@ -1,6 +1,6 @@
 // src/lib/eporner.js
 const BASE     = 'https://www.eporner.com/api/v2/video';
-export const PER_PAGE = 10;
+export const PER_PAGE = 30;
 
 const ORDER_MAP = {
   trending: 'top-weekly',
@@ -53,7 +53,7 @@ export async function fetchEpornerVideos({ sort = 'latest', page = 0, query = ''
   return { videos, hasMore, total };
 }
 
-export async function fetchEpornerBatch({ sort = 'latest', page = 0, query = '', tag = '', pages = 3 }) {
+export async function fetchEpornerBatch({ sort = 'latest', page = 0, query = '', tag = '', pages = 4 }) {
   const requests = Array.from({ length: pages }, (_, i) =>
     fetchEpornerVideos({ sort, page: page + i, query, tag }).catch(() => ({
       videos: [],
@@ -73,7 +73,7 @@ export async function fetchEpornerBatch({ sort = 'latest', page = 0, query = '',
 
   return {
     videos,
-    hasMore: settled.some(r => r.hasMore) || videos.length > 0,
+    hasMore: videos.length > 0,
     total: Math.max(...settled.map(r => r.total || 0), 0),
     nextPage: page + pages
   };
@@ -92,5 +92,5 @@ export async function fetchEpornerVideo(id) {
 export async function fetchSimilarVideos(video, page = 0) {
   const tag = Array.isArray(video?.tags) && video.tags.length ? video.tags[0] : '';
   const query = tag || video?.title || '';
-  return fetchEpornerBatch({ sort: 'trending', page, query, pages: 2 });
+  return fetchEpornerBatch({ sort: 'trending', page, query, pages: 4 });
 }
