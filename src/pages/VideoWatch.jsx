@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { fetchEpornerBatch, fetchEpornerVideo, fetchSimilarVideos } from '../lib/eporner';
 import { addToHistory, fetchComments, postComment, isLiked, toggleLike } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
@@ -9,7 +9,9 @@ export default function VideoWatch() {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [video, setVideo] = useState(null);
+  const location = useLocation();
+  const routedVideo = location.state?.video || null;
+  const [video, setVideo] = useState(routedVideo);
   const [similar, setSimilar] = useState([]);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
@@ -24,7 +26,7 @@ export default function VideoWatch() {
     async function loadVideo() {
       setLoading(true);
       try {
-        const current = await fetchEpornerVideo(id);
+        const current = routedVideo?.id === id ? routedVideo : await fetchEpornerVideo(id);
         if (cancelled) return;
         setVideo(current);
         setLikeCount(current.like_count || 0);
@@ -34,9 +36,16 @@ export default function VideoWatch() {
           addToHistory(id, user.id, current);
         }
         const related = await fetchSimilarVideos(current, 0);
-        if (!cancelled) setSimilar((related.videos || []).filter(v => v.id !== id));
+        if (!cancelled) {
+          const clean = (related.videos || []).filter(v => v.id !== id);
+          setSimilar(clean);
+          if (clean.length === 0) {
+            const backup = await fetchEpornerBatch({ sort: 'trending', page: 0, pages: 4 });
+            if (!cancelled) setSimilar(backup.videos.filter(v => v.id !== id));
+          }
+        }
       } catch {
-        const fallback = await fetchEpornerBatch({ sort: 'trending', page: 0, pages: 3 });
+        const fallback = await fetchEpornerBatch({ sort: 'trending', page: 0, pages: 4 });
         if (!cancelled) {
           const found = fallback.videos.find(v => v.id === id) || fallback.videos[0] || null;
           setVideo(found);
@@ -48,14 +57,14 @@ export default function VideoWatch() {
     }
     loadVideo();
     return () => { cancelled = true; };
-  }, [id, user?.id]);
+  }, [id, user?.id, routedVideo]);
 
   const submitSearch = async (e) => {
     e.preventDefault();
     const q = search.trim();
     if (!q) return navigate('/videos');
     setLoading(true);
-    const result = await fetchEpornerBatch({ query: q, sort: 'trending', page: 0, pages: 3 });
+    const result = await fetchEpornerBatch({ query: q, sort: 'trending', page: 0, pages: 4 });
     setSimilar(result.videos.filter(v => v.id !== id));
     setLoading(false);
   };
@@ -147,13 +156,30 @@ export default function VideoWatch() {
         <aside className="watch-side" style={s.side}>
           <h2 style={s.sectionTitle}>Similar videos</h2>
           <div style={s.similarList}>
-            {similar.map(v => <VideoCard key={v.id} video={v} compact onClick={() => navigate(`/videos/${v.id}`)} />)}
+            {similar.map(v => <VideoCard key={v.id} video={v} compact onClick={() => navigate(`/videos/${v.id}`, { state: { video: v } })} />)}
           </div>
           <button onClick={loadMoreSimilar} style={s.moreBtn}>More similar videos</button>
         </aside>
       </div>
+      <div style={s.bannerAd}><AdsterraBanner /></div>
     </main>
   );
+}
+
+function AdsterraBanner() {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || el.dataset.loaded) return;
+    el.dataset.loaded = 'true';
+    window.atOptions = { key: 'c5831a750d0ec46ab4e86855aa45bdc1', format: 'iframe', height: 50, width: 320, params: {} };
+    const s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.async = true;
+    s.src = 'https://scarleterror.com/c5831a750d0ec46ab4e86855aa45bdc1/invoke.js';
+    el.appendChild(s);
+  }, []);
+  return <div ref={ref} style={{ width: '320px', height: '50px', overflow: 'hidden' }} />;
 }
 
 const glass = {
@@ -163,7 +189,7 @@ const glass = {
 };
 
 const s = {
-  wrap: { minHeight: '100vh', background: '#050508', color: '#fff', fontFamily: "'Syne',sans-serif", padding: '14px 14px 92px' },
+  wrap: { minHeight: '100dvh', height: 'auto', overflowY: 'auto', background: '#050508', color: '#fff', fontFamily: "'Syne',sans-serif", padding: '14px 14px 142px' },
   searchPane: { ...glass, maxWidth: '1200px', margin: '0 auto 16px', borderRadius: '12px', padding: '8px', display: 'flex', gap: '8px', position: 'sticky', top: 0, zIndex: 5 },
   searchInput: { flex: 1, minWidth: 0, background: 'transparent', border: 'none', outline: 'none', color: '#fff', fontSize: '15px', fontFamily: "'Syne',sans-serif" },
   searchBtn: { border: 'none', borderRadius: '8px', background: '#1a6bff', color: '#fff', fontWeight: 800, padding: '9px 13px', cursor: 'pointer', fontFamily: "'Syne',sans-serif" },
@@ -191,5 +217,6 @@ const s = {
   similarList: { display: 'grid', gap: '12px' },
   moreBtn: { width: '100%', marginTop: '15px', ...glass, color: '#fff', borderRadius: '8px', padding: '11px', fontWeight: 800, cursor: 'pointer', fontFamily: "'Syne',sans-serif" },
   empty: { color: '#8797b7', textAlign: 'center', marginTop: '80px' },
-  emptySmall: { color: '#71809d', fontSize: '13px' }
+  emptySmall: { color: '#71809d', fontSize: '13px' },
+  bannerAd: { position: 'fixed', bottom: '68px', left: 0, right: 0, height: '50px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid #111', borderBottom: '1px solid #111', zIndex: 40, overflow: 'hidden' }
 };

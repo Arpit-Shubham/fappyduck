@@ -8,6 +8,22 @@ const SORTS = [
   { key: 'oldest', label: 'Oldest' }
 ];
 
+function AdsterraBanner() {
+  const ref = React.useRef(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || el.dataset.loaded) return;
+    el.dataset.loaded = 'true';
+    window.atOptions = { key: 'c5831a750d0ec46ab4e86855aa45bdc1', format: 'iframe', height: 50, width: 320, params: {} };
+    const s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.async = true;
+    s.src = 'https://scarleterror.com/c5831a750d0ec46ab4e86855aa45bdc1/invoke.js';
+    el.appendChild(s);
+  }, []);
+  return <div ref={ref} style={{ width: '320px', height: '50px', overflow: 'hidden' }} />;
+}
+
 export default function Videos() {
   const navigate = useNavigate();
   const [videos, setVideos] = useState([]);
@@ -27,13 +43,13 @@ export default function Videos() {
         sort,
         query,
         page: pageNum,
-        pages: 3
+        pages: 4
       });
       const fresh = data.filter(v => !seen.current.has(v.id));
       fresh.forEach(v => seen.current.add(v.id));
       setVideos(prev => reset ? fresh : [...prev, ...fresh]);
       setPage(nextPage - 1);
-      setHasMore(more && data.length > 0);
+      setHasMore(more && fresh.length > 0);
     } finally {
       setLoading(false);
     }
@@ -70,7 +86,7 @@ export default function Videos() {
       </div>
 
       <section style={s.grid}>
-        {videos.map(video => <VideoCard key={video.id} video={video} onClick={() => navigate(`/videos/${video.id}`)} />)}
+        {videos.map(video => <VideoCard key={video.id} video={video} onClick={() => navigate(`/videos/${video.id}`, { state: { video } })} />)}
       </section>
 
       {loading && <Loader />}
@@ -86,6 +102,7 @@ export default function Videos() {
         <span style={s.pageText}>Page {Math.floor(page / 3) + 1}</span>
         <button disabled={!hasMore || loading} onClick={() => load(page + 1, false)} style={s.pageBtn}>Next</button>
       </div>
+      <div style={s.bannerAd}><AdsterraBanner /></div>
     </main>
   );
 }
@@ -119,7 +136,7 @@ const glass = {
 };
 
 const s = {
-  wrap: { minHeight: '100vh', background: '#050508', color: '#fff', fontFamily: "'Syne',sans-serif", padding: '22px 16px 92px' },
+  wrap: { minHeight: '100dvh', height: 'auto', overflowY: 'auto', background: '#050508', color: '#fff', fontFamily: "'Syne',sans-serif", padding: '22px 16px 142px' },
   header: { display: 'grid', gap: '14px', maxWidth: '1200px', margin: '0 auto 18px' },
   title: { margin: 0, fontSize: '28px', fontWeight: 800 },
   search: { display: 'flex', gap: '8px', ...glass, borderRadius: '12px', padding: '8px' },
@@ -146,5 +163,6 @@ const s = {
   compactCard: { display: 'grid', gridTemplateColumns: '138px 1fr', gap: '10px', cursor: 'pointer' },
   compactThumb: { aspectRatio: '16/9', background: '#0a0f1d', borderRadius: '8px', overflow: 'hidden', position: 'relative' },
   compactInfo: { minWidth: 0 },
-  compactTitle: { margin: '0 0 5px', color: '#f5f7ff', fontSize: '13px', lineHeight: 1.3, fontWeight: 800, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
+  compactTitle: { margin: '0 0 5px', color: '#f5f7ff', fontSize: '13px', lineHeight: 1.3, fontWeight: 800, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' },
+  bannerAd: { position: 'fixed', bottom: '68px', left: 0, right: 0, height: '50px', background: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', borderTop: '1px solid #111', borderBottom: '1px solid #111', zIndex: 40, overflow: 'hidden' }
 };
