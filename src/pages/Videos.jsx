@@ -45,7 +45,6 @@ export default function Videos() {
     setPage(0);
     setHasMore(true);
     load(0, true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sort, query]);
 
   const submit = (e) => {
